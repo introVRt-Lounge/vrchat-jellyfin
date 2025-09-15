@@ -1,31 +1,20 @@
 # Docker Deployment
 
-This project includes a `docker-compose.yml` file for easy deployment with Docker Compose platforms like Coolify, Railway, Render, or any Docker Compose-compatible service.
+This project includes a `docker-compose.yml` file for easy deployment.
 
-## Required Environment Variables
+## Environment Variables
 
-Set these in your deployment platform:
+Required:
+- `JELLYFIN_HOST`
+- `JELLYFIN_USERNAME` 
+- `JELLYFIN_PASSWORD`
 
-- `JELLYFIN_HOST` - Your Jellyfin server URL
-- `JELLYFIN_USERNAME` - Jellyfin username  
-- `JELLYFIN_PASSWORD` - Jellyfin password
-
-## Optional Variables
-
-All have sensible defaults:
-
-- `AUDIO_BITRATE` (default: 192000)
-- `VIDEO_BITRATE` (default: 5000000) 
-- `MAX_AUDIO_CHANNELS` (default: 2)
-- `MAX_HEIGHT` (default: 1080)
-- `MAX_WIDTH` (default: 1920)
-
-See `.env.example` for all available options.
+Optional (see `.env.example` for defaults):
+- `AUDIO_BITRATE`, `VIDEO_BITRATE`, `MAX_AUDIO_CHANNELS`, `MAX_HEIGHT`, `MAX_WIDTH`
 
 ## Deployment
 
-1. Connect your Git repository to your platform
-2. Set the required environment variables
-3. Deploy
+1. Set environment variables
+2. Deploy with Docker Compose
 
-The service will be available on port 4000 with health checks enabled.
+Service runs on port 4000.
