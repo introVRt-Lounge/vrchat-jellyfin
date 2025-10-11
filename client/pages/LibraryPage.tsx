@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Input, Card, CardBody, CardHeader, Button } from '@heroui/react';
 import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import SubtitleModal from '../components/SubtitleModal';
 
 interface LibraryItem {
   itemId: string;
@@ -25,6 +26,8 @@ function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [libraryType, setLibraryType] = useState<'Movies' | 'TvShows' | null>(null);
+  const [subtitleModalOpen, setSubtitleModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null);
 
   // Debounced search function
   const debouncedSearch = useCallback(
@@ -97,8 +100,8 @@ function LibraryPage() {
   };
 
   const handleMovieClick = async (item: LibraryItem) => {
-    // This will be implemented when we create the subtitle selection UI
-    console.log('Movie clicked:', item);
+    setSelectedItem(item);
+    setSubtitleModalOpen(true);
   };
 
   const clearSearch = () => {
@@ -233,6 +236,17 @@ function LibraryPage() {
             Clear search
           </Button>
         </div>
+      )}
+
+      {/* Subtitle Selection Modal */}
+      {selectedItem && (
+        <SubtitleModal
+          isOpen={subtitleModalOpen}
+          onClose={() => setSubtitleModalOpen(false)}
+          itemId={selectedItem.itemId}
+          itemName={selectedItem.name || 'Unknown'}
+          subtitles={selectedItem.subtitles}
+        />
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardBody, Button } from '@heroui/react';
+import SubtitleModal from '../components/SubtitleModal';
 
 interface Episode {
   itemId: string;
@@ -22,6 +23,8 @@ function SeasonPage() {
   const [showName, setShowName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [subtitleModalOpen, setSubtitleModalOpen] = useState(false);
+  const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null);
 
   useEffect(() => {
     const fetchEpisodes = async () => {
@@ -58,9 +61,8 @@ function SeasonPage() {
   }, [seasonId]);
 
   const handleEpisodeClick = async (episode: Episode) => {
-    // Handle episode selection - same as movie selection
-    // This will be implemented when we create the subtitle selection UI
-    console.log('Episode clicked:', episode);
+    setSelectedEpisode(episode);
+    setSubtitleModalOpen(true);
   };
 
   const handleBackClick = () => {
@@ -163,6 +165,17 @@ function SeasonPage() {
         <div className="text-center py-12">
           <p className="text-gray-400">No episodes found for this season.</p>
         </div>
+      )}
+
+      {/* Subtitle Selection Modal */}
+      {selectedEpisode && (
+        <SubtitleModal
+          isOpen={subtitleModalOpen}
+          onClose={() => setSubtitleModalOpen(false)}
+          itemId={selectedEpisode.itemId}
+          itemName={selectedEpisode.name || `Episode ${selectedEpisode.index || 'Unknown'}`}
+          subtitles={selectedEpisode.subtitles}
+        />
       )}
     </div>
   );
