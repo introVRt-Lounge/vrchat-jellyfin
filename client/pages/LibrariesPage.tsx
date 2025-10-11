@@ -6,7 +6,6 @@ interface Library {
   itemId: string;
   name: string | null;
   type: 'Movies' | 'TvShows' | string;
-  thumbnailUrl: string | null;
 }
 
 function LibrariesPage() {
@@ -18,7 +17,7 @@ function LibrariesPage() {
   useEffect(() => {
     const fetchLibraries = async () => {
       try {
-        const response = await fetch('/libraries');
+        const response = await fetch('/i');
         if (!response.ok) {
           throw new Error(`Failed to fetch libraries: ${response.status}`);
         }
@@ -90,22 +89,10 @@ function LibrariesPage() {
               <h2 className="text-xl font-semibold">{library.name || 'Unnamed Library'}</h2>
             </CardHeader>
             <CardBody>
-              <div className="aspect-video bg-gray-700 rounded mb-4 overflow-hidden">
-                {library.thumbnailUrl ? (
-                  <img
-                    src={library.thumbnailUrl}
-                    alt={library.name || 'Library'}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Hide broken images
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-500">
-                    No Image
-                  </div>
-                )}
+              <div className="aspect-video bg-gray-700 rounded mb-4 overflow-hidden flex items-center justify-center">
+                <div className="text-6xl">
+                  {library.type === 'Movies' ? '🎬' : '📺'}
+                </div>
               </div>
               <p className="text-gray-300">
                 Browse {library.type === 'Movies' ? 'movies' : library.type === 'TvShows' ? 'TV shows' : 'media'}

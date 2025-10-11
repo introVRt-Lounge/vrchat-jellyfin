@@ -11,9 +11,9 @@ services:
     network_mode: host
     environment:
       # Required Jellyfin connection settings
-      - JELLYFIN_HOST=${JELLYFIN_HOST:?}
-      - JELLYFIN_USERNAME=${JELLYFIN_USERNAME:?}
-      - JELLYFIN_PASSWORD=${JELLYFIN_PASSWORD:?}
+      - JELLYFIN_HOST=${JELLYFIN_HOST}
+      - JELLYFIN_USERNAME=${JELLYFIN_USERNAME}
+      - JELLYFIN_PASSWORD=${JELLYFIN_PASSWORD}
 
       # Allow self-signed SSL certificates for development
       - NODE_TLS_REJECT_UNAUTHORIZED=0
