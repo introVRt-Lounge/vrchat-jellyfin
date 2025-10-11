@@ -70,6 +70,23 @@ docker run -d \
 ghcr.io/gurrrrrrett3/vrchat-jellyfin:master
 ```
 
+### Local Development
+
+For testing local changes, use the provided `docker-compose.local.yml`:
+
+```bash
+# Build and run locally
+docker-compose -f docker-compose.local.yml up --build
+
+# Or to run in background
+docker-compose -f docker-compose.local.yml up -d --build
+
+# To stop
+docker-compose -f docker-compose.local.yml down
+```
+
+This will build the image locally from your current code instead of pulling from the registry.
+
 ## Installation (No Docker)
 
 Install Node.js and npm
