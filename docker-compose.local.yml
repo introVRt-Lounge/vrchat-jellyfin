@@ -8,13 +8,15 @@ services:
       dockerfile: Dockerfile
     container_name: vrchat-jellyfin-local
     restart: unless-stopped
-    ports:
-      - "4000:4000"
+    network_mode: host
     environment:
       # Required Jellyfin connection settings
       - JELLYFIN_HOST=${JELLYFIN_HOST:?}
       - JELLYFIN_USERNAME=${JELLYFIN_USERNAME:?}
       - JELLYFIN_PASSWORD=${JELLYFIN_PASSWORD:?}
+
+      # Allow self-signed SSL certificates for development
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
 
       # Optional audio/video quality settings with defaults
       - AUDIO_BITRATE=${AUDIO_BITRATE:-192000}

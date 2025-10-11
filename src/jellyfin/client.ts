@@ -41,13 +41,14 @@ export default class JellyfinClient {
     }
 
     public async authenticate() {
-        const auth = await this._api.authenticateUserByName(this.username, this.password).catch((e) => {
+        try {
+            const auth = await this._api.authenticateUserByName(this.username, this.password);
+            this.userId = auth.data.User?.Id;
+            return auth.status == 200;
+        } catch (e) {
             console.error("Failed to authenticate with Jellyfin, check your username and password", e);
-            process.exit(1);
-        });
-
-        this.userId = auth.data.User?.Id;
-        return auth.status == 200;
+            return false; // Return false instead of exiting
+        }
     }
 
     public async getPlayableMedia() {

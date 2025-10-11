@@ -156,17 +156,19 @@ app.get("/v/:id", async (req, res) => {
     }
 });
 
-// Start the server after Jellyfin client authentication
-client.authenticate().then((success) => {
-    if (!success) {
-        console.error("Failed to authenticate with Jellyfin server");
-        process.exit(1);
-    }
+// Start the server immediately for UI testing
+console.log("🚀 Starting VRChat Jellyfin server...");
 
-    const server = http.createServer(app);
-    const port = parseInt(process.env.WEBSERVER_PORT || "4000");
+const server = http.createServer(app);
+const port = parseInt(process.env.WEBSERVER_PORT || "4000");
 
-    server.listen(port, () => {
-        console.log(`Webserver listening on port ${port}`);
-    });
+server.listen(port, () => {
+    console.log(`✅ Webserver listening on port ${port}`);
+    console.log(`🌐 Access the UI at: http://localhost:${port}`);
+    console.log(`⚠️  Note: Jellyfin server connection may not be working yet`);
+});
+
+server.on('error', (error) => {
+    console.error('❌ Server error:', error);
+    process.exit(1);
 });
