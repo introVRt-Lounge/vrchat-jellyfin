@@ -3,6 +3,7 @@
 import { Api, Jellyfin } from "@jellyfin/sdk";
 import { getUserViewsApi } from "@jellyfin/sdk/lib/utils/api/user-views-api";
 import { getItemsApi } from "@jellyfin/sdk/lib/utils/api/items-api";
+import { ItemFields } from "@jellyfin/sdk/lib/generated-client/models/item-fields";
 import fetch from "node-fetch";
 import { resolve } from "path";
 import { ProxyOptions, SubtitleMethod } from "./proxy/proxy"; // Added import
@@ -165,6 +166,122 @@ export default class JellyfinClient {
         }
 
         return item;
+    }
+
+    // New methods for modern UI
+    public async getLibraries() {
+        const viewsResponse = await getUserViewsApi(this._api).getUserViews({
+            userId: this.userId!,
+        });
+
+        const views = viewsResponse.data.Items || [];
+        return views.map(view => ({
+            itemId: view.Id,
+            name: view.Name,
+            type: view.CollectionType,
+            thumbnailUrl: this.getImageUrl(view.Id!, 'Primary', view.ImageTags),
+        }));
+    }
+
+    public async getLibraryItems(libraryId: string, searchTerm?: string, limit: number = 50, offset: number = 0) {
+        const itemsResponse = await getItemsApi(this._api).getItems({
+            userId: this.userId!,
+            parentId: libraryId,
+            searchTerm,
+            limit,
+            startIndex: offset,
+            fields: [ItemFields.PrimaryImageAspectRatio, ItemFields.MediaStreams],
+        });
+
+        const items = itemsResponse.data.Items || [];
+        return items.map(item => ({
+            itemId: item.Id,
+            name: item.Name,
+            type: item.Type,
+            thumbnailUrl: this.getImageUrl(item.Id!, 'Primary', item.ImageTags),
+            hasSubtitles: (item.MediaStreams || []).some(stream => stream.Type === 'Subtitle'),
+            subtitles: (item.MediaStreams || [])
+                .filter(stream => stream.Type === 'Subtitle')
+                .map(stream => ({
+                    index: stream.Index,
+                    language: stream.Language || 'Unknown',
+                })),
+        }));
+    }
+
+    public async getTVShowSeasons(showId: string) {
+        const seasonsResponse = await getItemsApi(this._api).getItems({
+            userId: this.userId!,
+            parentId: showId,
+            fields: [ItemFields.PrimaryImageAspectRatio],
+        });
+
+        const seasons = seasonsResponse.data.Items || [];
+        return seasons.map(season => ({
+            itemId: season.Id,
+            name: season.Name,
+            index: season.IndexNumber,
+            thumbnailUrl: this.getImageUrl(season.Id!, 'Primary', season.ImageTags),
+        }));
+    }
+
+    public async getSeasonEpisodes(seasonId: string) {
+        const episodesResponse = await getItemsApi(this._api).getItems({
+            userId: this.userId!,
+            parentId: seasonId,
+            fields: [ItemFields.PrimaryImageAspectRatio, ItemFields.MediaStreams],
+        });
+
+        const episodes = episodesResponse.data.Items || [];
+        return episodes.map(episode => ({
+            itemId: episode.Id,
+            name: episode.Name,
+            index: episode.IndexNumber,
+            thumbnailUrl: this.getImageUrl(episode.Id!, 'Primary', episode.ImageTags),
+            hasSubtitles: (episode.MediaStreams || []).some(stream => stream.Type === 'Subtitle'),
+            subtitles: (episode.MediaStreams || [])
+                .filter(stream => stream.Type === 'Subtitle')
+                .map(stream => ({
+                    index: stream.Index,
+                    language: stream.Language || 'Unknown',
+                })),
+        }));
+    }
+
+    public async getItemDetails(itemId: string) {
+        const itemResponse = await getItemsApi(this._api).getItems({
+            userId: this.userId!,
+            ids: [itemId],
+            fields: [ItemFields.PrimaryImageAspectRatio, ItemFields.MediaStreams],
+        });
+
+        const item = itemResponse.data.Items?.[0];
+        if (!item) return null;
+
+        return {
+            itemId: item.Id,
+            name: item.Name,
+            type: item.Type,
+            thumbnailUrl: this.getImageUrl(item.Id!, 'Primary', item.ImageTags),
+            subtitles: (item.MediaStreams || [])
+                .filter(stream => stream.Type === 'Subtitle')
+                .map(stream => ({
+                    index: stream.Index,
+                    language: stream.Language || 'Unknown',
+                })),
+        };
+    }
+
+    private getImageUrl(itemId: string, imageType: string, imageTags?: { [key: string]: string } | null): string | null {
+        // If no image tags provided, try to get a basic image URL
+        if (!imageTags || !imageTags[imageType]) {
+            // Return URL without tag - Jellyfin will serve default image if available
+            return `${this.serverUrl}/Items/${itemId}/Images/${imageType}?api_key=${this.apiKey}&maxWidth=300&maxHeight=450`;
+        }
+
+        // Use the image tag for better caching and to ensure the image exists
+        const tag = imageTags[imageType];
+        return `${this.serverUrl}/Items/${itemId}/Images/${imageType}?tag=${tag}&api_key=${this.apiKey}&maxWidth=300&maxHeight=450`;
     }
 }
 

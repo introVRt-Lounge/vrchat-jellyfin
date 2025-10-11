@@ -18,10 +18,74 @@ app.get("/", (req, res) => {
     res.sendFile("index.html", { root: "dist/client" });
 });
 
-// Endpoint to fetch playable media
+// Legacy endpoint - keep for backward compatibility
 app.get("/i", async (req, res) => {
     const items = await client.getPlayableMedia();
     res.json(items);
+});
+
+// New modern UI endpoints
+app.get("/libraries", async (req, res) => {
+    try {
+        const libraries = await client.getLibraries();
+        res.json(libraries);
+    } catch (error) {
+        console.error('Error fetching libraries:', error);
+        res.status(500).json({ error: 'Failed to fetch libraries' });
+    }
+});
+
+app.get("/libraries/:libraryId/items", async (req, res) => {
+    try {
+        const { libraryId } = req.params;
+        const { search, limit = '50', offset = '0' } = req.query;
+        const items = await client.getLibraryItems(
+            libraryId,
+            search as string,
+            parseInt(limit as string),
+            parseInt(offset as string)
+        );
+        res.json(items);
+    } catch (error) {
+        console.error('Error fetching library items:', error);
+        res.status(500).json({ error: 'Failed to fetch library items' });
+    }
+});
+
+app.get("/tvshows/:showId/seasons", async (req, res) => {
+    try {
+        const { showId } = req.params;
+        const seasons = await client.getTVShowSeasons(showId);
+        res.json(seasons);
+    } catch (error) {
+        console.error('Error fetching TV show seasons:', error);
+        res.status(500).json({ error: 'Failed to fetch seasons' });
+    }
+});
+
+app.get("/seasons/:seasonId/episodes", async (req, res) => {
+    try {
+        const { seasonId } = req.params;
+        const episodes = await client.getSeasonEpisodes(seasonId);
+        res.json(episodes);
+    } catch (error) {
+        console.error('Error fetching season episodes:', error);
+        res.status(500).json({ error: 'Failed to fetch episodes' });
+    }
+});
+
+app.get("/items/:itemId/details", async (req, res) => {
+    try {
+        const { itemId } = req.params;
+        const details = await client.getItemDetails(itemId);
+        if (!details) {
+            return res.status(404).json({ error: 'Item not found' });
+        }
+        res.json(details);
+    } catch (error) {
+        console.error('Error fetching item details:', error);
+        res.status(500).json({ error: 'Failed to fetch item details' });
+    }
 });
 
 // Endpoint to create a proxy with subtitle options
