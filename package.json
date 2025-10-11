@@ -13,6 +13,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@heroui/react": "^2.8.5",
     "@jellyfin/sdk": "^0.7.0",
     "@types/react": "^19.2.2",
