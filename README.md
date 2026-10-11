@@ -1,6 +1,6 @@
 # vrchat-jellyfin
 
-[![Docker](https://github.com/gurrrrrrett3/vrchat-jellyfin/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/gurrrrrrett3/vrchat-jellyfin/actions/workflows/docker-publish.yml)
+[![Docker](https://github.com/introVRt-Lounge/vrchat-jellyfin/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/introVRt-Lounge/vrchat-jellyfin/actions/workflows/docker-publish.yml)
 
 a Jellyfin client designed for VRChat
 
@@ -37,20 +37,25 @@ Docker Compose (recommended):
 version: '3'
 services:
   vrchat-jellyfin:
-    image: ghcr.io/gurrrrrrett3/vrchat-jellyfin:master
+    image: ghcr.io/introvrt-lounge/vrchat-jellyfin:master
     container_name: vrchat-jellyfin
     restart: unless-stopped
     ports:
       - 4000:4000
+    volumes:
+      - vrchat-jellyfin-data:/data
     environment:
       JELLYFIN_HOST: <http[s]://URL>
       JELLYFIN_USERNAME: <USERNAME>
       JELLYFIN_PASSWORD: <PASSWORD>
+      PROXY_STORE_PATH: /data/proxies.json
       AUDIO_BITRATE: 128000
       VIDEO_BITRATE: 3000000
       MAX_AUDIO_CHANNELS: 2
       MAX_HEIGHT: 720
       MAX_WIDTH: 1280
+volumes:
+  vrchat-jellyfin-data:
 ```
 
 Docker CLI:
@@ -60,15 +65,19 @@ docker run -d \
 --name vrchat-jellyfin \
 --restart unless-stopped \
 -p 4000:4000 \
+-v vrchat-jellyfin-data:/data \
 -e JELLYFIN_HOST=<http[s]://URL> \
 -e JELLYFIN_USERNAME=<USERNAME> \
 -e JELLYFIN_PASSWORD=<PASSWORD> \
--e AUDIO_BITRATE: 128000 \
--e VIDEO_BITRATE: 3000000 \
--e MAX_HEIGHT: 720 \
--e MAX_WIDTH: 1280 \
-ghcr.io/gurrrrrrett3/vrchat-jellyfin:master
+-e PROXY_STORE_PATH=/data/proxies.json \
+-e AUDIO_BITRATE=128000 \
+-e VIDEO_BITRATE=3000000 \
+-e MAX_HEIGHT=720 \
+-e MAX_WIDTH=1280 \
+ghcr.io/introvrt-lounge/vrchat-jellyfin:master
 ```
+
+Capability stream URLs: see [docs/capability-urls.md](docs/capability-urls.md).
 
 ### Local Development
 

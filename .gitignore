@@ -1,5 +1,6 @@
 node_modules
 dist
+data/
 .env
 vrchat-jellyfin.code-workspace
 project_structure.txt
@@ -7,3 +8,7 @@ generateProjectStructure.js
 .gitignore
 .cursor/*
 .specstory/*
+
+# Agent chat dumps (never commit)
+agent chats/
+recovered_agent_chats/

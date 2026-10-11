@@ -8,88 +8,104 @@ import { ProxyOptions, SubtitleMethod } from "../jellyfin/proxy/proxy";
 
 const app = express();
 
+let jellyfinReady = false;
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/assets", express.static("dist/client"));
+
+function requireJellyfin(req: express.Request, res: express.Response, next: express.NextFunction) {
+    if (!jellyfinReady) {
+        res.status(503).json({ error: "Jellyfin authentication not ready; retry shortly." });
+        return;
+    }
+    next();
+}
 
 // Serve the index.html file from the correct directory
 app.get("/", (req, res) => {
     res.sendFile("index.html", { root: "dist/client" });
 });
 
+app.get("/healthz", (_req, res) => {
+    res.json({ ok: true, jellyfinReady });
+});
+
 // Legacy endpoint - keep for backward compatibility
-app.get("/i", async (req, res) => {
+app.get("/i", requireJellyfin, async (req, res) => {
     const items = await client.getPlayableMedia();
     res.json(items);
 });
 
 // New modern UI endpoints
-app.get("/libraries", async (req, res) => {
+app.get("/libraries", requireJellyfin, async (req, res) => {
     try {
         const libraries = await client.getLibraries();
         res.json(libraries);
     } catch (error) {
-        console.error('Error fetching libraries:', error);
-        res.status(500).json({ error: 'Failed to fetch libraries' });
+        console.error("Error fetching libraries:", error);
+        res.status(500).json({ error: "Failed to fetch libraries" });
     }
 });
 
-app.get("/libraries/:libraryId/items", async (req, res) => {
+app.get("/libraries/:libraryId/items", requireJellyfin, async (req, res) => {
     try {
         const { libraryId } = req.params;
-        const { search, limit = '50', offset = '0' } = req.query;
+        const { search, limit = "50", offset = "0" } = req.query;
         const items = await client.getLibraryItems(
             libraryId,
             search as string,
             parseInt(limit as string),
-            parseInt(offset as string)
+            parseInt(offset as string),
         );
         res.json(items);
     } catch (error) {
-        console.error('Error fetching library items:', error);
-        res.status(500).json({ error: 'Failed to fetch library items' });
+        console.error("Error fetching library items:", error);
+        res.status(500).json({ error: "Failed to fetch library items" });
     }
 });
 
-app.get("/tvshows/:showId/seasons", async (req, res) => {
+app.get("/tvshows/:showId/seasons", requireJellyfin, async (req, res) => {
     try {
         const { showId } = req.params;
         const seasons = await client.getTVShowSeasons(showId);
         res.json(seasons);
     } catch (error) {
-        console.error('Error fetching TV show seasons:', error);
-        res.status(500).json({ error: 'Failed to fetch seasons' });
+        console.error("Error fetching TV show seasons:", error);
+        res.status(500).json({ error: "Failed to fetch seasons" });
     }
 });
 
-app.get("/seasons/:seasonId/episodes", async (req, res) => {
+app.get("/seasons/:seasonId/episodes", requireJellyfin, async (req, res) => {
     try {
         const { seasonId } = req.params;
         const episodes = await client.getSeasonEpisodes(seasonId);
         res.json(episodes);
     } catch (error) {
-        console.error('Error fetching season episodes:', error);
-        res.status(500).json({ error: 'Failed to fetch episodes' });
+        console.error("Error fetching season episodes:", error);
+        res.status(500).json({ error: "Failed to fetch episodes" });
     }
 });
 
-app.get("/items/:itemId/details", async (req, res) => {
+app.get("/items/:itemId/details", requireJellyfin, async (req, res) => {
     try {
         const { itemId } = req.params;
         const details = await client.getItemDetails(itemId);
         if (!details) {
-            return res.status(404).json({ error: 'Item not found' });
+            return res.status(404).json({ error: "Item not found" });
         }
         res.json(details);
     } catch (error) {
-        console.error('Error fetching item details:', error);
-        res.status(500).json({ error: 'Failed to fetch item details' });
+        console.error("Error fetching item details:", error);
+        res.status(500).json({ error: "Failed to fetch item details" });
     }
 });
 
-// Endpoint to create a proxy with subtitle options
-app.post("/i/:id", async (req, res) => {
+// Mint capability stream URL (behind Cloudflare Access on the UI host).
+// Auth lifecycle: token is the capability; after PROXY_TTL_MS expiry there is no refresh —
+// operator must re-mint via this endpoint. See docs/capability-urls.md.
+app.post("/i/:id", requireJellyfin, async (req, res) => {
     const itemId = req.params.id;
     const { subtitleStreamIndex } = req.body;
 
@@ -103,27 +119,35 @@ app.post("/i/:id", async (req, res) => {
     const proxy = ProxyManager.createProxy(itemId, proxyOptions);
     res.json({
         id: proxy.id,
+        expiresAt: new Date(proxy.createdAt.getTime() + ProxyManager.PROXY_TIMEOUT).toISOString(),
     });
 });
 
 // Endpoint to fetch subtitle streams
-app.get("/subtitles/:itemId", async (req, res) => {
+app.get("/subtitles/:itemId", requireJellyfin, async (req, res) => {
     const itemId = req.params.itemId;
     try {
         const subtitleStreams = await client.getSubtitleStreams(itemId);
         res.json({ subtitleStreams });
     } catch (error) {
-        console.error('Error fetching subtitle streams:', error);
-        res.status(500).json({ error: 'Failed to fetch subtitle streams.' });
+        console.error("Error fetching subtitle streams:", error);
+        res.status(500).json({ error: "Failed to fetch subtitle streams." });
     }
 });
 
-// Endpoint to stream video with subtitle options
+// Bare GET for VRChat (no cookies). Capability id in the path is the secret.
+// Do not gate on jellyfinReady here: a valid persisted capability must not become
+// 503 during auth retry after restart (VRChat needs a stream, not JSON).
 app.get("/v/:id", async (req, res) => {
     const proxy = ProxyManager.getProxy(req.params.id);
 
     if (!proxy) {
-        res.status(404).send("Proxy not found, is your url valid?");
+        res.status(404).send("Proxy not found or expired. Mint a new URL from the UI.");
+        return;
+    }
+
+    if (!jellyfinReady) {
+        res.status(503).send("Jellyfin authentication not ready; retry shortly.");
         return;
     }
 
@@ -138,37 +162,55 @@ app.get("/v/:id", async (req, res) => {
                 status: response.status,
                 statusText: response.statusText,
                 headers: Object.fromEntries(response.headers.entries()),
-                bodySnippet: errorText.slice(0, 200)
+                bodySnippet: errorText.slice(0, 200),
             });
             res.status(502).send("Failed to fetch video stream from Jellyfin.");
             return;
         }
-        // Set headers from Jellyfin response
         for (const [key, value] of response.headers.entries()) {
-            if (key.toLowerCase() === 'transfer-encoding') continue; // skip problematic headers
+            if (key.toLowerCase() === "transfer-encoding") continue;
             res.setHeader(key, value);
         }
         response.body.pipe(res);
         console.log(`Piping stream to client with options:`, options);
     } catch (err) {
-        console.error('Error in /v/:id route:', err);
-        res.status(500).send('Internal server error while proxying video stream.');
+        console.error("Error in /v/:id route:", err);
+        res.status(500).send("Internal server error while proxying video stream.");
     }
 });
 
-// Start the server immediately for UI testing
-console.log("🚀 Starting VRChat Jellyfin server...");
+async function authenticateWithRetry() {
+    const maxAttempts = parseInt(process.env.JELLYFIN_AUTH_RETRIES || "30", 10);
+    const delayMs = parseInt(process.env.JELLYFIN_AUTH_RETRY_MS || "5000", 10);
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const success = await client.authenticate();
+        if (success) {
+            jellyfinReady = true;
+            console.log("Jellyfin authentication ready");
+            return;
+        }
+        console.error(
+            `Jellyfin auth failed (attempt ${attempt}/${maxAttempts}); retrying in ${delayMs}ms`,
+        );
+        await new Promise((r) => setTimeout(r, delayMs));
+    }
+    console.error("Jellyfin authentication exhausted retries; API routes will stay 503");
+}
+
+ProxyManager.init();
+
+console.log("Starting VRChat Jellyfin server...");
 
 const server = http.createServer(app);
 const port = parseInt(process.env.WEBSERVER_PORT || "4000");
 
 server.listen(port, () => {
-    console.log(`✅ Webserver listening on port ${port}`);
-    console.log(`🌐 Access the UI at: http://localhost:${port}`);
-    console.log(`⚠️  Note: Jellyfin server connection may not be working yet`);
+    console.log(`Webserver listening on port ${port}`);
+    void authenticateWithRetry();
 });
 
-server.on('error', (error) => {
-    console.error('❌ Server error:', error);
+server.on("error", (error) => {
+    console.error("Server error:", error);
     process.exit(1);
 });
