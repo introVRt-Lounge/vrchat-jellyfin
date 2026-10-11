@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Input, Card, CardBody, CardHeader, Button } from '@heroui/react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Input, Card, CardBody, Button } from '@heroui/react';
 import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import SubtitleModal from '../components/SubtitleModal';
 
@@ -16,35 +16,65 @@ interface LibraryItem {
   }>;
 }
 
+const PAGE_SIZE = 50;
+
 function LibraryPage() {
   const { libraryId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const navState = (location.state || {}) as { libraryType?: string; libraryName?: string };
+
   const [items, setItems] = useState<LibraryItem[]>([]);
-  const [filteredItems, setFilteredItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
   const [libraryType, setLibraryType] = useState<'Movies' | 'TvShows' | null>(null);
   const [subtitleModalOpen, setSubtitleModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null);
 
-  // Debounced search function
+  const resolveLibraryType = (rows: LibraryItem[], hinted?: string) => {
+    const hint = (hinted || '').toLowerCase();
+    if (hint === 'tvshows') return 'TvShows';
+    if (hint === 'movies') return 'Movies';
+    if (rows.some((r) => r.type === 'Series')) return 'TvShows';
+    return 'Movies';
+  };
+
+  const fetchPage = useCallback(
+    async (query: string, pageOffset: number, append: boolean) => {
+      if (!libraryId) return;
+
+      const params = new URLSearchParams();
+      params.set('limit', String(PAGE_SIZE));
+      params.set('offset', String(pageOffset));
+      if (query.trim()) {
+        params.append('search', query.trim());
+      }
+
+      const response = await fetch(`/libraries/${libraryId}/items?${params}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch items: ${response.status}`);
+      }
+      const data: LibraryItem[] = await response.json();
+
+      setItems((prev) => (append ? [...prev, ...data] : data));
+      setHasMore(data.length >= PAGE_SIZE);
+      setOffset(pageOffset + data.length);
+      setLibraryType((prev) => prev || resolveLibraryType(data, navState.libraryType));
+    },
+    [libraryId, navState.libraryType],
+  );
+
   const debouncedSearch = useCallback(
     debounce(async (query: string) => {
       setIsSearching(true);
+      setError(null);
       try {
-        const params = new URLSearchParams();
-        if (query.trim()) {
-          params.append('search', query.trim());
-        }
-
-        const response = await fetch(`/libraries/${libraryId}/items?${params}`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch items: ${response.status}`);
-        }
-        const data = await response.json();
-        setFilteredItems(data);
+        await fetchPage(query, 0, false);
       } catch (err) {
         console.error('Error searching items:', err);
         setError('Failed to search items');
@@ -52,7 +82,7 @@ function LibraryPage() {
         setIsSearching(false);
       }
     }, 300),
-    [libraryId]
+    [fetchPage],
   );
 
   useEffect(() => {
@@ -63,18 +93,7 @@ function LibraryPage() {
       setError(null);
 
       try {
-        const response = await fetch(`/libraries/${libraryId}/items`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch library items: ${response.status}`);
-        }
-        const data = await response.json();
-        setItems(data);
-        setFilteredItems(data);
-
-        // Determine library type from first item
-        if (data.length > 0) {
-          setLibraryType(data[0].type === 'Episode' ? 'TvShows' : 'Movies');
-        }
+        await fetchPage('', 0, false);
       } catch (err) {
         console.error('Error fetching library items:', err);
         setError('Failed to load library items. Please try again later.');
@@ -84,24 +103,46 @@ function LibraryPage() {
     };
 
     fetchInitialItems();
-  }, [libraryId]);
+  }, [libraryId, fetchPage]);
 
   useEffect(() => {
-    debouncedSearch(searchQuery);
-  }, [searchQuery, debouncedSearch]);
+    if (!loading) {
+      debouncedSearch(searchQuery);
+    }
+  }, [searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleItemClick = (item: LibraryItem) => {
-    if (libraryType === 'TvShows') {
-      navigate(`/tvshow/${item.itemId}`);
-    } else {
-      // For movies, go directly to subtitle selection
-      handleMovieClick(item);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT') {
+        e.preventDefault();
+        const el = document.querySelector<HTMLInputElement>('input[aria-label="Search library"]');
+        el?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    setError(null);
+    try {
+      await fetchPage(searchQuery, offset, true);
+    } catch (err) {
+      console.error('Error loading more items:', err);
+      setError('Failed to load more items');
+    } finally {
+      setLoadingMore(false);
     }
   };
 
-  const handleMovieClick = async (item: LibraryItem) => {
-    setSelectedItem(item);
-    setSubtitleModalOpen(true);
+  const handleItemClick = (item: LibraryItem) => {
+    if (libraryType === 'TvShows' || item.type === 'Series') {
+      navigate(`/tvshow/${item.itemId}`);
+    } else {
+      setSelectedItem(item);
+      setSubtitleModalOpen(true);
+    }
   };
 
   const clearSearch = () => {
@@ -111,20 +152,24 @@ function LibraryPage() {
   const getSearchStatusText = () => {
     if (isSearching) return 'Searching...';
     if (searchQuery.trim()) {
-      return `Found ${filteredItems.length} ${filteredItems.length === 1 ? 'item' : 'items'}`;
+      return `Showing ${items.length} ${items.length === 1 ? 'result' : 'results'} — press Esc or clear to reset`;
     }
-    return '';
+    return 'Tip: press / to focus search';
   };
+
+  const title =
+    navState.libraryName ||
+    (libraryType === 'Movies' ? 'Movies' : libraryType === 'TvShows' ? 'TV Shows' : 'Library');
 
   if (loading) {
     return (
-      <div className="p-8">
-        <h1 className="text-3xl font-bold mb-8">Library</h1>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-8">{title}</h1>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
           {Array.from({ length: 20 }, (_, i) => (
             <Card key={i} className="bg-gray-800 animate-pulse">
               <CardBody className="p-0">
-                <div className="aspect-[2/3] bg-gray-700"></div>
+                <div className="aspect-[2/3] bg-gray-700" />
               </CardBody>
             </Card>
           ))}
@@ -133,37 +178,38 @@ function LibraryPage() {
     );
   }
 
-  if (error) {
+  if (error && items.length === 0) {
     return (
-      <div className="p-8">
-        <h1 className="text-3xl font-bold mb-8">Library</h1>
-        <div className="text-red-400 text-center">
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-8">{title}</h1>
+        <div className="text-red-400 text-center" role="alert">
           <p>{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded"
-          >
+          <Button className="mt-4" color="primary" onPress={() => window.location.reload()}>
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-4">
-          {libraryType === 'Movies' ? 'Movies' : 'TV Shows'}
-        </h1>
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+      <div className="mb-6 sm:mb-8">
+        <Button variant="ghost" className="mb-4" onPress={() => navigate('/')}>
+          ← Libraries
+        </Button>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4">{title}</h1>
 
-        {/* Search Bar */}
-        <div className="max-w-md mb-4">
+        <div className="max-w-md mb-2">
           <Input
-            type="text"
+            type="search"
+            aria-label="Search library"
             placeholder={`Search ${libraryType === 'Movies' ? 'movies' : 'TV shows'}...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') clearSearch();
+            }}
             startContent={<MagnifyingGlassIcon className="w-4 h-4" />}
             endContent={
               searchQuery ? (
@@ -171,28 +217,29 @@ function LibraryPage() {
                   isIconOnly
                   variant="light"
                   size="sm"
-                  onClick={clearSearch}
+                  aria-label="Clear search"
+                  onPress={clearSearch}
                   className="text-gray-400 hover:text-white"
                 >
                   <XMarkIcon className="w-4 h-4" />
                 </Button>
               ) : null
             }
-            className="mb-2"
           />
-          {getSearchStatusText() && (
-            <p className="text-sm text-gray-400">{getSearchStatusText()}</p>
+          <p className="text-sm text-gray-400 mt-2">{getSearchStatusText()}</p>
+          {error && (
+            <p className="text-sm text-red-400 mt-1" role="alert">{error}</p>
           )}
         </div>
       </div>
 
-      {/* Items Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {filteredItems.map((item) => (
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+        {items.map((item) => (
           <Card
             key={item.itemId}
-            className="bg-gray-800 hover:bg-gray-700 transition-colors cursor-pointer group"
-            onClick={() => handleItemClick(item)}
+            isPressable
+            className="bg-gray-800 hover:bg-gray-700 transition-colors group"
+            onPress={() => handleItemClick(item)}
           >
             <CardBody className="p-0">
               <div className="aspect-[2/3] bg-gray-700 rounded-t-lg overflow-hidden relative">
@@ -201,17 +248,17 @@ function LibraryPage() {
                     src={item.thumbnailUrl}
                     alt={item.name || 'Item'}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-500">
+                  <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">
                     No Image
                   </div>
                 )}
 
-                {/* Subtitle indicator */}
                 {item.hasSubtitles && (
                   <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
                     CC
@@ -229,16 +276,29 @@ function LibraryPage() {
         ))}
       </div>
 
-      {filteredItems.length === 0 && searchQuery && !isSearching && (
+      {items.length === 0 && !isSearching && (
         <div className="text-center py-12">
-          <p className="text-gray-400 mb-4">No items found for "{searchQuery}"</p>
-          <Button onClick={clearSearch} variant="ghost">
-            Clear search
+          <p className="text-gray-400 mb-4">
+            {searchQuery
+              ? `No items found for "${searchQuery}"`
+              : 'This library is empty.'}
+          </p>
+          {searchQuery && (
+            <Button onPress={clearSearch} variant="ghost">
+              Clear search
+            </Button>
+          )}
+        </div>
+      )}
+
+      {hasMore && items.length > 0 && (
+        <div className="flex justify-center mt-8">
+          <Button color="primary" isLoading={loadingMore} onPress={handleLoadMore}>
+            Load more
           </Button>
         </div>
       )}
 
-      {/* Subtitle Selection Modal */}
       {selectedItem && (
         <SubtitleModal
           isOpen={subtitleModalOpen}
@@ -252,12 +312,11 @@ function LibraryPage() {
   );
 }
 
-// Debounce utility function
 function debounce<T extends (...args: any[]) => any>(
   func: T,
-  wait: number
+  wait: number,
 ): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout;
+  let timeout: ReturnType<typeof setTimeout>;
   return (...args: Parameters<T>) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
