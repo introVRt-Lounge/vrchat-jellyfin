@@ -9,6 +9,9 @@ generateProjectStructure.js
 .cursor/*
 .specstory/*
 
+# Local Playwright proof (never commit binaries)
+localdocs/playwright-runs/
+
 # Agent chat dumps (never commit)
 agent chats/
 recovered_agent_chats/
