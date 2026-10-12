@@ -8,6 +8,8 @@ import './styles.css';
 const container = document.getElementById('root');
 const root = createRoot(container!);
 
+document.documentElement.classList.add('dark');
+
 root.render(
   <React.StrictMode>
     <HeroUIProvider>

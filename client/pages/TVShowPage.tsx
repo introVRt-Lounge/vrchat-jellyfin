@@ -61,14 +61,14 @@ function TVShowPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
-        <h1 className="text-3xl font-bold mb-8">Loading...</h1>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="p-4 sm:p-8 max-w-6xl mx-auto">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-8">Loading...</h1>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
           {Array.from({ length: 6 }, (_, i) => (
             <Card key={i} className="bg-gray-800 animate-pulse">
               <CardBody className="aspect-video">
-                <div className="h-6 bg-gray-700 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-700 rounded w-1/2"></div>
+                <div className="h-6 bg-gray-700 rounded w-3/4 mb-2" />
+                <div className="h-4 bg-gray-700 rounded w-1/2" />
               </CardBody>
             </Card>
           ))}
@@ -79,42 +79,44 @@ function TVShowPage() {
 
   if (error) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8 max-w-6xl mx-auto">
         <div className="mb-4">
-          <Button onClick={handleBackClick} variant="ghost" className="mb-4">
+          <Button onPress={handleBackClick} variant="ghost" className="mb-4">
             ← Back
           </Button>
-          <h1 className="text-3xl font-bold">{showName}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">{showName}</h1>
         </div>
-        <div className="text-red-400 text-center">
+        <div className="text-red-400 text-center" role="alert">
           <p>{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded"
+          <Button
+            className="mt-4"
+            color="primary"
+            onPress={() => window.location.reload()}
           >
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <div className="mb-8">
-        <Button onClick={handleBackClick} variant="ghost" className="mb-4">
+        <Button onPress={handleBackClick} variant="ghost" className="mb-4">
           ← Back
         </Button>
-        <h1 className="text-3xl font-bold mb-2">{showName}</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{showName}</h1>
         <p className="text-gray-400">Select a season</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         {seasons.map((season) => (
           <Card
             key={season.itemId}
-            className="bg-gray-800 hover:bg-gray-700 transition-colors cursor-pointer"
-            onClick={() => handleSeasonClick(season)}
+            isPressable
+            className="bg-gray-800 hover:bg-gray-700 transition-colors"
+            onPress={() => handleSeasonClick(season)}
           >
             <CardBody>
               <div className="aspect-video bg-gray-700 rounded mb-4 overflow-hidden">

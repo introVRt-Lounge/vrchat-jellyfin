@@ -6,7 +6,12 @@ import { getItemsApi } from "@jellyfin/sdk/lib/utils/api/items-api";
 import { ItemFields } from "@jellyfin/sdk/lib/generated-client/models/item-fields";
 import fetch from "node-fetch";
 import { resolve } from "path";
-import { ProxyOptions, SubtitleMethod } from "./proxy/proxy"; // Added import
+import { ProxyOptions, SubtitleMethod } from "./proxy/proxy";
+import {
+    buildPublicImageUrl,
+    buildUpstreamImageUrl,
+    ImageUrlOptions,
+} from "./imageUrl";
 
 const encodingSettings: Record<string, string> = require(resolve("./encodingSettings.js")).encodingSettings;
 
@@ -273,16 +278,27 @@ export default class JellyfinClient {
         };
     }
 
-    private getImageUrl(itemId: string, imageType: string, imageTags?: { [key: string]: string } | null): string | null {
-        // If no image tags provided, try to get a basic image URL
-        if (!imageTags || !imageTags[imageType]) {
-            // Return URL without tag - Jellyfin will serve default image if available
-            return `${this.serverUrl}/Items/${itemId}/Images/${imageType}?api_key=${this.apiKey}&maxWidth=300&maxHeight=450`;
-        }
+    /**
+     * Browser-safe thumbnail path proxied by this app (`/img/:itemId`).
+     * Never includes Jellyfin hostnames or api_key.
+     */
+    private getImageUrl(
+        itemId: string,
+        imageType: string,
+        imageTags?: { [key: string]: string } | null,
+    ): string | null {
+        const tag = imageTags?.[imageType];
+        return buildPublicImageUrl(itemId, imageType, tag ? { tag } : {});
+    }
 
-        // Use the image tag for better caching and to ensure the image exists
-        const tag = imageTags[imageType];
-        return `${this.serverUrl}/Items/${itemId}/Images/${imageType}?tag=${tag}&api_key=${this.apiKey}&maxWidth=300&maxHeight=450`;
+    /** Server-side fetch of a Jellyfin item image (credential stays here). */
+    public async getItemImage(itemId: string, imageType: string, options: ImageUrlOptions = {}) {
+        const url = buildUpstreamImageUrl(this.serverUrl, itemId, imageType, this.apiKey, options);
+        return fetch(url, {
+            headers: {
+                "User-Agent": JellyfinClient.APP_NAME,
+            },
+        });
     }
 }
 

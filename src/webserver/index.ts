@@ -5,6 +5,7 @@ import http from "http";
 import ProxyManager from "../jellyfin/proxy/proxyManager";
 import { client } from "../jellyfin";
 import { ProxyOptions, SubtitleMethod } from "../jellyfin/proxy/proxy";
+import { isAllowedImageType, sanitizeImageQuery } from "../jellyfin/imageUrl";
 
 const app = express();
 
@@ -121,6 +122,46 @@ app.post("/i/:id", requireJellyfin, async (req, res) => {
         id: proxy.id,
         expiresAt: new Date(proxy.createdAt.getTime() + ProxyManager.PROXY_TIMEOUT).toISOString(),
     });
+});
+
+// Proxy Jellyfin artwork. Browser only ever sees /img/... — api_key stays server-side.
+app.get("/img/:itemId", requireJellyfin, async (req, res) => {
+    const { itemId } = req.params;
+    if (!itemId || itemId.includes("..") || itemId.includes("/")) {
+        res.status(400).send("Invalid item id");
+        return;
+    }
+
+    const sanitized = sanitizeImageQuery(req.query as Record<string, unknown>);
+    if (!sanitized || !isAllowedImageType(sanitized.imageType)) {
+        res.status(400).send("Invalid image type or query");
+        return;
+    }
+
+    try {
+        const response = await client.getItemImage(itemId, sanitized.imageType, {
+            tag: sanitized.tag,
+            maxWidth: sanitized.maxWidth,
+            maxHeight: sanitized.maxHeight,
+        });
+
+        if (!response.ok || !response.body) {
+            res.status(response.status === 404 ? 404 : 502).send("Image unavailable");
+            return;
+        }
+
+        const contentType = response.headers.get("content-type");
+        const cacheControl = response.headers.get("cache-control");
+        const etag = response.headers.get("etag");
+        if (contentType) res.setHeader("Content-Type", contentType);
+        if (etag) res.setHeader("ETag", etag);
+        res.setHeader("Cache-Control", cacheControl || "public, max-age=86400");
+
+        response.body.pipe(res);
+    } catch (err) {
+        console.error("Error in /img/:itemId route:", err);
+        res.status(500).send("Internal server error while proxying image");
+    }
 });
 
 // Endpoint to fetch subtitle streams

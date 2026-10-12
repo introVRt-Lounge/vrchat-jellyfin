@@ -4,13 +4,17 @@
 
 a Jellyfin client designed for VRChat
 
-> [!IMPORTANT]
+> [!NOTE]
 >
-> ### Incomplete Project
+> ### What ships today
 >
-> While this project is functional, it is not yet complete. The end goal is to have a link that can be pasted into the vrchat client, then use the jellyfin cast feature to control the player like a chromecast. This is not yet implemented, and the current implementation is a workaround.
+> Browse Jellyfin libraries in a HeroUI web UI, pick subtitles, and mint a **capability stream URL** (`/v/<id>`) you paste into VRChat / ChilloutVR / Resonite. Artwork is proxied through this app (`/img/...`) so browsers never see Jellyfin hostnames or API keys. See [docs/capability-urls.md](docs/capability-urls.md).
+>
+> ### Still aspirational
+>
+> Jellyfin cast / Chromecast-style remote control of the in-world player is **not** implemented. Seeking and splash/instruction streams are also open.
 
-handles requesting media from jellyfin in a format that can be played in vrchat, as well as proxying urls to bypass the risk of sharing a jellyfin api key
+handles requesting media from jellyfin in a format that can be played in VRChat, as well as proxying stream and image URLs so Jellyfin API keys never reach the browser
 
 ## Tips
 - If the player has a switch between **Video** and **Stream**, use **Stream**
@@ -161,13 +165,13 @@ Go to the web interface (default port is 4000), select media, and copy the link.
 
 ## Progress
 
-- [x] Jellyfin proxy 
+- [x] Jellyfin stream proxy (capability URLs)
+- [x] Image proxy (`/img/:itemId` — no API keys in the browser)
 - [x] Transcoding
-- [ ] Subtitle Baking
+- [x] Subtitle track selection (+ bake via encode)
 - [ ] Audio track selection
-- [x] Subtitle track selection
-- [x] Temp Web interface
-- [ ] Support for the jellyfin cast api
-- [ ] Video Stream generation (splash screen with instructions, etc)
-- [x] Docker
+- [x] HeroUI web interface (libraries → items → mint URL)
+- [ ] Jellyfin cast API / Chromecast-style remote (aspirational)
+- [ ] Video stream generation (splash screen with instructions, etc)
+- [x] Docker / GHCR (`ghcr.io/introvrt-lounge/vrchat-jellyfin`)
 - [ ] Seeking (not sure if this is possible)

@@ -3,14 +3,15 @@
 ## Overview ✅ COMPLETE
 Transform the vanilla TypeScript frontend into a modern React + HeroUI interface while maintaining all existing functionality. The goal is to create a thumbnail-heavy, searchable media browser that offers the same core functionality (proxy URL generation) but with a vastly improved user experience.
 
-**Status: ✅ FULLY IMPLEMENTED** (shipping via PR https://github.com/introVRt-Lounge/vrchat-jellyfin/pull/4 with capability URLs + own GHCR; awaiting operator merge)
+**Status: ✅ FULLY IMPLEMENTED** (landed via PR #4; completion polish + image proxy in issue #5 / `fix/issue-5-heroui-completion`)
 - All phases completed successfully
 - Same backend API compatibility maintained
 - Capability stream URL harden + persist added on top (issue #3)
+- Thumbnails proxied via `/img/:itemId` (no Jellyfin host / api_key in browser)
 
 ## API Investigation Results ✅
 - **Library Types**: Views have `CollectionType` field ("Movies" or "TvShows")
-- **Thumbnails**: Items have `ImageTags` object, construct URLs as `/Items/{itemId}/Images/Primary?tag={tag}&api_key={key}`
+- **Thumbnails**: Items have `ImageTags`; public URLs are `/img/{itemId}?type=Primary&tag=...` (app proxies to Jellyfin with api_key server-side)
 - **Subtitles**: Items have `MediaStreams` array, filter by `Type === "Subtitle"`, each has `Language` field (ISO codes like "en", "es")
 - **Search**: Need server-side search API implementation
 

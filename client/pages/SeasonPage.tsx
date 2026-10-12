@@ -71,13 +71,13 @@ function SeasonPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
-        <h1 className="text-3xl font-bold mb-8">Loading...</h1>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-8">Loading...</h1>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
           {Array.from({ length: 20 }, (_, i) => (
             <Card key={i} className="bg-gray-800 animate-pulse">
               <CardBody className="p-0">
-                <div className="aspect-[2/3] bg-gray-700"></div>
+                <div className="aspect-[2/3] bg-gray-700" />
               </CardBody>
             </Card>
           ))}
@@ -88,42 +88,44 @@ function SeasonPage() {
 
   if (error) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto">
         <div className="mb-4">
-          <Button onClick={handleBackClick} variant="ghost" className="mb-4">
+          <Button onPress={handleBackClick} variant="ghost" className="mb-4">
             ← Back
           </Button>
-          <h1 className="text-3xl font-bold">{seasonName}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">{seasonName}</h1>
         </div>
-        <div className="text-red-400 text-center">
+        <div className="text-red-400 text-center" role="alert">
           <p>{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded"
+          <Button
+            className="mt-4"
+            color="primary"
+            onPress={() => window.location.reload()}
           >
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto">
       <div className="mb-8">
-        <Button onClick={handleBackClick} variant="ghost" className="mb-4">
+        <Button onPress={handleBackClick} variant="ghost" className="mb-4">
           ← Back
         </Button>
-        <h1 className="text-3xl font-bold mb-2">{seasonName}</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{seasonName}</h1>
         <p className="text-gray-400">Select an episode</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
         {episodes.map((episode) => (
           <Card
             key={episode.itemId}
-            className="bg-gray-800 hover:bg-gray-700 transition-colors cursor-pointer group"
-            onClick={() => handleEpisodeClick(episode)}
+            isPressable
+            className="bg-gray-800 hover:bg-gray-700 transition-colors group"
+            onPress={() => handleEpisodeClick(episode)}
           >
             <CardBody className="p-0">
               <div className="aspect-[2/3] bg-gray-700 rounded-t-lg overflow-hidden relative">

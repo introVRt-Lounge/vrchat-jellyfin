@@ -116,8 +116,9 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
             <div className="space-y-3">
               {/* No subtitles option */}
               <Card
-                className="cursor-pointer hover:bg-gray-700 transition-colors"
-                onClick={() => handleSubtitleSelect(null)}
+                isPressable
+                className="hover:bg-gray-700 transition-colors"
+                onPress={() => handleSubtitleSelect(null)}
               >
                 <CardBody className="py-3">
                   <div className="flex items-center justify-between">
@@ -136,8 +137,9 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
               {subtitles.map((subtitle) => (
                 <Card
                   key={subtitle.index}
-                  className="cursor-pointer hover:bg-gray-700 transition-colors"
-                  onClick={() => handleSubtitleSelect(subtitle.index)}
+                  isPressable
+                  className="hover:bg-gray-700 transition-colors"
+                  onPress={() => handleSubtitleSelect(subtitle.index)}
                 >
                   <CardBody className="py-3">
                     <div className="flex items-center justify-between">
@@ -181,7 +183,7 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
                     onClick={(e) => (e.target as HTMLInputElement).select()}
                   />
                   <Button
-                    onClick={copyToClipboard}
+                    onPress={copyToClipboard}
                     variant={copied ? "solid" : "ghost"}
                     color={copied ? "success" : "primary"}
                     size="sm"
@@ -201,7 +203,7 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
         </ModalBody>
 
         <ModalFooter>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onPress={onClose}>
             {generatedUrl ? 'Close' : 'Cancel'}
           </Button>
         </ModalFooter>
