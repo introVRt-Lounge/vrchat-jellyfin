@@ -243,12 +243,6 @@ function LibraryPage() {
           {error && (
             <p className="text-sm text-red-400 mt-1" role="alert">{error}</p>
           )}
-          {movieRequestsEnabled && libraryType !== 'TvShows' && (
-            <MovieRequestPanel
-              seedQuery={searchQuery}
-              emphasize={Boolean(searchQuery.trim()) && items.length === 0 && !isSearching}
-            />
-          )}
         </div>
       </div>
 
@@ -317,6 +311,19 @@ function LibraryPage() {
           </Button>
         </div>
       )}
+
+      {/* After search results (and Load more) — never compete with the search box. */}
+      {movieRequestsEnabled &&
+        libraryType !== 'TvShows' &&
+        searchQuery.trim() &&
+        !isSearching && (
+          <div className="mt-10 pt-8 border-t border-gray-800 max-w-xl mx-auto">
+            <MovieRequestPanel
+              seedQuery={searchQuery}
+              emphasize={items.length === 0}
+            />
+          </div>
+        )}
 
       {selectedItem && (
         <SubtitleModal

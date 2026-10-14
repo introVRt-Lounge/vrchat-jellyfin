@@ -96,31 +96,29 @@ function MovieRequestPanel({ seedQuery = '', emphasize = false }: MovieRequestPa
   };
 
   return (
-    <div
-      className={`mt-4 max-w-xl text-left ${emphasize ? 'rounded-lg border border-primary/40 bg-primary/5 p-3' : ''}`}
-    >
+    <div className="max-w-xl text-left">
       {phase === 'idle' && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-500">
             {emphasize
-              ? 'Nothing useful in the library for that search? Request the title you want.'
-              : "Can't find the right movie? Request it — even if search showed something else."}
+              ? 'Still missing? You can request it.'
+              : 'Not what you needed? You can request a different title.'}
           </p>
           <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
             <Input
               type="text"
-              label="Movie title"
               aria-label="Movie title to request"
-              placeholder="e.g. Dune Part Two"
+              placeholder="Movie title to request"
               value={titleQuery}
               onChange={(e) => setTitleQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') void startLookup();
               }}
               className="flex-1"
+              size="sm"
             />
-            <Button color="primary" onPress={() => void startLookup()}>
-              Request a movie
+            <Button color="default" variant="bordered" size="sm" onPress={() => void startLookup()}>
+              Request
             </Button>
           </div>
         </div>
