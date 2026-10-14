@@ -26,7 +26,13 @@ interface SubtitleModalProps {
   subtitles: Subtitle[];
 }
 
-function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: SubtitleModalProps) {
+function SubtitleModal({
+  isOpen,
+  onClose,
+  itemId,
+  itemName,
+  subtitles: subtitlesProp = [],
+}: SubtitleModalProps) {
   const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState<number | null>(null);
   const [generatedUrl, setGeneratedUrl] = useState<string>('');
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
@@ -38,6 +44,8 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
   ]);
   const [ttlHours, setTtlHours] = useState(24);
   const [extendedGated, setExtendedGated] = useState(false);
+  const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
+  const [loadingSubtitles, setLoadingSubtitles] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -46,6 +54,7 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
     setExpiresAt(null);
     setError(null);
     setCopied(false);
+    setSubtitles(subtitlesProp.length ? subtitlesProp : []);
     let cancelled = false;
     fetchUiConfig().then((cfg) => {
       if (cancelled) return;
@@ -53,10 +62,36 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
       setTtlHours(cfg.streamUrlDefaultHours);
       setExtendedGated(cfg.streamUrlExtendedRoleGated);
     });
+    // List/search no longer ships MediaStreams — load once when minting.
+    setLoadingSubtitles(true);
+    fetch(`/items/${itemId}/details`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Failed to load item details: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        const rows = Array.isArray(data?.subtitles) ? data.subtitles : [];
+        setSubtitles(
+          rows.map((s: Subtitle) => ({
+            index: s.index,
+            language: s.language || 'Unknown',
+          })),
+        );
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Error loading subtitles:', err);
+        // Keep any prop fallback; still allow "No Subtitles" mint.
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSubtitles(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, [isOpen]);
+    // Intentionally omit subtitlesProp — parents pass a fresh [] each render.
+  }, [isOpen, itemId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getLanguageFlag = (language: string) => {
     const flagMap: { [key: string]: string } = {
@@ -149,6 +184,9 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
             <p className="text-sm text-gray-400">
               Choose subtitle track or select &quot;No Subtitles&quot;
             </p>
+            {loadingSubtitles && (
+              <p className="text-xs text-gray-500 mt-1">Loading subtitle tracks…</p>
+            )}
           </div>
 
           {!generatedUrl ? (
