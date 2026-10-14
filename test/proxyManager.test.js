@@ -77,4 +77,18 @@ describe("ProxyManager capability URLs", () => {
         const disk = JSON.parse(fs.readFileSync(storePath, "utf8"));
         assert.equal(disk.length, 0);
     });
+
+    it("honours per-proxy ttlMs longer than global default", () => {
+        const longTtl = 60_000;
+        const proxy = ProxyManager.createProxy("item-long", undefined, longTtl);
+        assert.equal(proxy.ttlMs, longTtl);
+        // Older than global 1s TTL but within 60s per-URL TTL
+        proxy.createdAt.setTime(Date.now() - 5_000);
+        ProxyManager.proxies.set(proxy.id, proxy);
+        assert.ok(ProxyManager.getProxy(proxy.id), "should still be valid under per-URL TTL");
+
+        const disk = JSON.parse(fs.readFileSync(storePath, "utf8"));
+        const row = disk.find((e) => e.id === proxy.id);
+        assert.equal(row.ttlMs, longTtl);
+    });
 });

@@ -37,6 +37,14 @@ describe("buildUiConfig", () => {
         assert.equal(buildUiConfig({ UI_THEME: "LOUNGE" }).theme, "lounge");
         assert.equal(parseUiTheme("nope"), "default");
     });
+
+    it("exposes stream URL duration presets", () => {
+        const cfg = buildUiConfig({});
+        assert.ok(Array.isArray(cfg.streamUrlDurations));
+        assert.ok(cfg.streamUrlDurations.length >= 1);
+        assert.equal(cfg.streamUrlDefaultHours, 24);
+        assert.equal(cfg.streamUrlExtendedRoleGated, false);
+    });
 });
 
 describe("Discord Widgetbot URLs", () => {
