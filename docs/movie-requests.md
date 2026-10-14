@@ -1,16 +1,17 @@
 # Movie requests
 
-On **Movies** libraries, hosts can request a title even when search returns nothing useful - or when it returns the wrong hits.
+On **Movies** libraries, after a library search finishes, a quiet **Request** control appears at the **bottom of the results** (after Load more) - never under the search box.
 
 ## Flow
 
-1. Under library search, type (or keep) a movie title and hit **Request a movie**.
-2. Confirm pick (title / year / poster only) via Radarr lookup.
-3. Server queues Radarr add+search (same quality profile / root folder defaults as Requestrr).
-4. Opaque ack in UI; channel webhook posts `@user requested Title — queued…`.
-5. Poller watches Radarr `hasFile`; when true, webhook posts `@user — Title is ready…`.
+1. Search the library first.
+2. Scroll past results / Load more; if needed, edit the title and hit **Request**.
+3. Confirm pick (title / year / poster only) via Radarr lookup.
+4. Server queues Radarr add+search (same quality profile / root folder defaults as Requestrr).
+5. Opaque ack in UI; channel webhook posts `@user requested Title — queued…`.
+6. Poller watches Radarr `hasFile`; when true, webhook posts `@user — Title is ready…`.
 
-Empty library search highlights the same panel; the control stays available whenever results exist but are not what was wanted.
+The panel only shows once a search query is active and the search is not in flight.
 
 Requestrr stays the Discord slash-command front door. This path talks to **Radarr** directly.
 
