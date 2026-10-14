@@ -25,8 +25,33 @@ function requireJellyfin(req: express.Request, res: express.Response, next: expr
     next();
 }
 
-// Serve the index.html file from the correct directory
+/** Discord / Slack / etc. unfurl crawlers (no JS). Keep in sync with Access Bypass on /share + /og.png. */
+function isLinkPreviewBot(userAgent: string | undefined): boolean {
+    return /Discordbot|Slackbot|Twitterbot|LinkedInBot|facebookexternalhit|Applebot|Embedly/i.test(
+        userAgent || "",
+    );
+}
+
+// Public Open Graph image (Access Bypass path — Discordbot must fetch without login).
+app.get("/og.png", (_req, res) => {
+    res.type("png");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.sendFile("og.png", { root: "dist/client" });
+});
+
+// Public announce card for Discord link previews (Access Bypass).
+app.get("/share", (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.sendFile("share.html", { root: "dist/client" });
+});
+
+// SPA shell. Preview bots get the share card so OG tags are server-rendered without the React tree.
 app.get("/", (req, res) => {
+    if (isLinkPreviewBot(req.get("user-agent"))) {
+        res.setHeader("Cache-Control", "public, max-age=300");
+        res.sendFile("share.html", { root: "dist/client" });
+        return;
+    }
     res.sendFile("index.html", { root: "dist/client" });
 });
 

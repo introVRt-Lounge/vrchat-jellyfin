@@ -16,6 +16,11 @@ a Jellyfin client designed for VRChat
 
 handles requesting media from jellyfin in a format that can be played in VRChat, as well as proxying stream and image URLs so Jellyfin API keys never reach the browser
 
+
+## Discord link preview (Open Graph)
+
+Paste **`https://vrchat.introvrtlounge.com/share`** into Discord (not the Access-gated `/`). That path is Cloudflare Access Bypass so Discordbot gets HTTP 200 HTML with `og:*` tags and `/og.png` (1200×630). The mint UI at `/` stays behind Discord Access.
+
 ## Tips
 - If the player has a switch between **Video** and **Stream**, use **Stream**
 - I've personally had better luck with the Unity video player over the AVPro one, but both should work
