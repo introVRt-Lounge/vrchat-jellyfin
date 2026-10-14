@@ -7,6 +7,7 @@ import { client } from "../jellyfin";
 import { ProxyOptions, SubtitleMethod } from "../jellyfin/proxy/proxy";
 import { isAllowedImageType, sanitizeImageQuery } from "../jellyfin/imageUrl";
 import { buildUiConfig } from "./uiConfig";
+import { initMovieRequests } from "../request";
 
 const app = express();
 
@@ -63,6 +64,8 @@ app.get("/healthz", (_req, res) => {
 app.get("/config", (_req, res) => {
     res.json(buildUiConfig());
 });
+
+const movieRequestRuntime = initMovieRequests(app);
 
 // Legacy endpoint - keep for backward compatibility
 app.get("/i", requireJellyfin, async (req, res) => {
@@ -284,5 +287,11 @@ server.listen(port, () => {
 
 server.on("error", (error) => {
     console.error("Server error:", error);
+    movieRequestRuntime.stop();
     process.exit(1);
+});
+
+process.on("SIGTERM", () => {
+    movieRequestRuntime.stop();
+    server.close();
 });

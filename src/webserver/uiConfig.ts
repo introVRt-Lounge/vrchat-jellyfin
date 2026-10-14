@@ -1,5 +1,7 @@
 /** Public UI config (no secrets). Served at GET /config for the Vite SPA. */
 
+import { buildMovieRequestFeatureConfig } from "../request/featureConfig";
+
 export type UiTheme = "default" | "lounge";
 
 export interface UiConfig {
@@ -8,6 +10,8 @@ export interface UiConfig {
         guildId: string;
         channelId: string;
     } | null;
+    /** Empty-search movie request CTA (Radarr + Discord notify). */
+    movieRequestsEnabled: boolean;
 }
 
 function cleanId(value: string | undefined): string {
@@ -33,6 +37,7 @@ export function buildUiConfig(env: NodeJS.ProcessEnv = process.env): UiConfig {
     return {
         theme: parseUiTheme(env.UI_THEME),
         discord,
+        movieRequestsEnabled: buildMovieRequestFeatureConfig(env).enabled,
     };
 }
 

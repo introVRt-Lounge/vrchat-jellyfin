@@ -8,11 +8,13 @@ export interface UiConfig {
     guildId: string;
     channelId: string;
   } | null;
+  movieRequestsEnabled: boolean;
 }
 
 export const DEFAULT_UI_CONFIG: UiConfig = {
   theme: 'default',
   discord: null,
+  movieRequestsEnabled: false,
 };
 
 export function discordChannelUrl(guildId: string, channelId: string): string {
@@ -32,7 +34,8 @@ export async function fetchUiConfig(): Promise<UiConfig> {
     const guildId = data.discord?.guildId?.trim() || '';
     const channelId = data.discord?.channelId?.trim() || '';
     const discord = guildId && channelId ? { guildId, channelId } : null;
-    return { theme, discord };
+    const movieRequestsEnabled = Boolean(data.movieRequestsEnabled);
+    return { theme, discord, movieRequestsEnabled };
   } catch {
     return DEFAULT_UI_CONFIG;
   }
