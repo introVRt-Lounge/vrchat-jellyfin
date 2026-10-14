@@ -243,6 +243,12 @@ function LibraryPage() {
           {error && (
             <p className="text-sm text-red-400 mt-1" role="alert">{error}</p>
           )}
+          {movieRequestsEnabled && libraryType !== 'TvShows' && (
+            <MovieRequestPanel
+              seedQuery={searchQuery}
+              emphasize={Boolean(searchQuery.trim()) && items.length === 0 && !isSearching}
+            />
+          )}
         </div>
       </div>
 
@@ -296,11 +302,8 @@ function LibraryPage() {
               ? `No items found for "${searchQuery}"`
               : 'This library is empty.'}
           </p>
-          {searchQuery && movieRequestsEnabled && libraryType !== 'TvShows' && (
-            <MovieRequestPanel key={searchQuery} query={searchQuery} />
-          )}
           {searchQuery && (
-            <Button className="mt-4" onPress={clearSearch} variant="ghost">
+            <Button onPress={clearSearch} variant="ghost">
               Clear search
             </Button>
           )}

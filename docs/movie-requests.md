@@ -1,14 +1,16 @@
-# Movie requests (empty search)
+# Movie requests
 
-When a **Movies** library search returns no results, the Lounge UI can offer **Request this movie?** without exposing acquisition details.
+On **Movies** libraries, hosts can request a title even when search returns nothing useful - or when it returns the wrong hits.
 
 ## Flow
 
-1. User searches; empty result set.
+1. Under library search, type (or keep) a movie title and hit **Request a movie**.
 2. Confirm pick (title / year / poster only) via Radarr lookup.
 3. Server queues Radarr add+search (same quality profile / root folder defaults as Requestrr).
 4. Opaque ack in UI; channel webhook posts `@user requested Title — queued…`.
 5. Poller watches Radarr `hasFile`; when true, webhook posts `@user — Title is ready…`.
+
+Empty library search highlights the same panel; the control stays available whenever results exist but are not what was wanted.
 
 Requestrr stays the Discord slash-command front door. This path talks to **Radarr** directly.
 

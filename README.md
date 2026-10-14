@@ -8,7 +8,7 @@ a Jellyfin client designed for VRChat
 >
 > ### What ships today
 >
-> Browse Jellyfin libraries in a HeroUI web UI, pick subtitles, and mint a **capability stream URL** (`/v/<id>`) you paste into VRChat / ChilloutVR / Resonite. Artwork is proxied through this app (`/img/...`) so browsers never see Jellyfin hostnames or API keys. Optional Widgetbot event chat (env `DISCORD_GUILD_ID` + `DISCORD_CHANNEL_ID`) and a Lounge cyberpunk skin (`UI_THEME=lounge`) are configured at runtime via `GET /config`. Optional empty-search **movie requests** (Radarr + Discord channel webhook) — see [docs/movie-requests.md](docs/movie-requests.md).
+> Browse Jellyfin libraries in a HeroUI web UI, pick subtitles, and mint a **capability stream URL** (`/v/<id>`) you paste into VRChat / ChilloutVR / Resonite. Artwork is proxied through this app (`/img/...`) so browsers never see Jellyfin hostnames or API keys. Optional Widgetbot event chat (env `DISCORD_GUILD_ID` + `DISCORD_CHANNEL_ID`) and a Lounge cyberpunk skin (`UI_THEME=lounge`) are configured at runtime via `GET /config`. Optional **movie requests** from the Movies library (Radarr + Discord channel webhook) — see [docs/movie-requests.md](docs/movie-requests.md).
 >
 > ### Still aspirational
 >
