@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardBody, CardHeader, Button } from '@heroui/react';
 import { useNavigate } from 'react-router-dom';
+import DiscordChatEmbed from '../components/DiscordChatEmbed';
 
 interface Library {
   itemId: string;
@@ -87,6 +88,7 @@ function LibrariesPage() {
             Retry
           </Button>
         </div>
+        <DiscordChatEmbed />
       </div>
     );
   }
@@ -98,6 +100,7 @@ function LibrariesPage() {
         <div className="text-center py-12 text-gray-400">
           <p>No movie or TV libraries found on this Jellyfin account.</p>
         </div>
+        <DiscordChatEmbed />
       </div>
     );
   }
@@ -139,6 +142,7 @@ function LibrariesPage() {
           </Card>
         ))}
       </div>
+      <DiscordChatEmbed />
     </div>
   );
 }
