@@ -8,6 +8,7 @@ import { ProxyOptions, SubtitleMethod } from "../jellyfin/proxy/proxy";
 import { isAllowedImageType, sanitizeImageQuery } from "../jellyfin/imageUrl";
 import { buildUiConfig } from "./uiConfig";
 import { initMovieRequests } from "../request";
+// isSpaClientPath kept in spaFallback.ts for tests / docs; routes below mirror App.tsx.
 
 const app = express();
 
@@ -272,6 +273,15 @@ async function authenticateWithRetry() {
     }
     console.error("Jellyfin authentication exhausted retries; API routes will stay 503");
 }
+
+/** Hard refresh / deep link into React Router (must be after all API routes). */
+function sendSpaShell(_req: express.Request, res: express.Response) {
+    res.sendFile("index.html", { root: "dist/client" });
+}
+
+app.get("/library/:libraryId", sendSpaShell);
+app.get("/tvshow/:showId", sendSpaShell);
+app.get("/season/:seasonId", sendSpaShell);
 
 ProxyManager.init();
 
