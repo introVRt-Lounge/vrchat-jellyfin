@@ -6,6 +6,7 @@ import ProxyManager from "../jellyfin/proxy/proxyManager";
 import { client } from "../jellyfin";
 import { ProxyOptions, SubtitleMethod } from "../jellyfin/proxy/proxy";
 import { isAllowedImageType, sanitizeImageQuery } from "../jellyfin/imageUrl";
+import { buildUiConfig } from "./uiConfig";
 
 const app = express();
 
@@ -31,6 +32,11 @@ app.get("/", (req, res) => {
 
 app.get("/healthz", (_req, res) => {
     res.json({ ok: true, jellyfinReady });
+});
+
+// Public UI config (Discord IDs, theme). No secrets — safe for the browser.
+app.get("/config", (_req, res) => {
+    res.json(buildUiConfig());
 });
 
 // Legacy endpoint - keep for backward compatibility

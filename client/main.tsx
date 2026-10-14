@@ -9,6 +9,7 @@ const container = document.getElementById('root');
 const root = createRoot(container!);
 
 document.documentElement.classList.add('dark');
+/* theme-lounge is applied after GET /config (see App.tsx) */
 
 root.render(
   <React.StrictMode>
