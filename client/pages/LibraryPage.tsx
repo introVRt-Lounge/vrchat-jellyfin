@@ -3,6 +3,8 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Input, Card, CardBody, Button } from '@heroui/react';
 import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import SubtitleModal from '../components/SubtitleModal';
+import MovieRequestPanel from '../components/MovieRequestPanel';
+import { fetchUiConfig } from '../uiConfig';
 
 interface LibraryItem {
   itemId: string;
@@ -35,6 +37,17 @@ function LibraryPage() {
   const [libraryType, setLibraryType] = useState<'Movies' | 'TvShows' | null>(null);
   const [subtitleModalOpen, setSubtitleModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null);
+  const [movieRequestsEnabled, setMovieRequestsEnabled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchUiConfig().then((cfg) => {
+      if (!cancelled) setMovieRequestsEnabled(Boolean(cfg.movieRequestsEnabled));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const resolveLibraryType = (rows: LibraryItem[], hinted?: string) => {
     const hint = (hinted || '').toLowerCase();
@@ -283,8 +296,11 @@ function LibraryPage() {
               ? `No items found for "${searchQuery}"`
               : 'This library is empty.'}
           </p>
+          {searchQuery && movieRequestsEnabled && libraryType !== 'TvShows' && (
+            <MovieRequestPanel key={searchQuery} query={searchQuery} />
+          )}
           {searchQuery && (
-            <Button onPress={clearSearch} variant="ghost">
+            <Button className="mt-4" onPress={clearSearch} variant="ghost">
               Clear search
             </Button>
           )}

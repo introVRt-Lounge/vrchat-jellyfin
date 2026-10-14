@@ -8,6 +8,7 @@ Transform the vanilla TypeScript frontend into a modern React + HeroUI interface
 - Same backend API compatibility maintained
 - Capability stream URL harden + persist added on top (issue #3)
 - Thumbnails proxied via `/img/:itemId` (no Jellyfin host / api_key in browser)
+- Empty-search movie request → Radarr + Discord ready ping (issue #13)
 
 ## API Investigation Results ✅
 - **Library Types**: Views have `CollectionType` field ("Movies" or "TvShows")
