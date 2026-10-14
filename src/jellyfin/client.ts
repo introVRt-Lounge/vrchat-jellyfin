@@ -3,6 +3,7 @@
 import { Api, Jellyfin } from "@jellyfin/sdk";
 import { getUserViewsApi } from "@jellyfin/sdk/lib/utils/api/user-views-api";
 import { getItemsApi } from "@jellyfin/sdk/lib/utils/api/items-api";
+import { getSearchApi } from "@jellyfin/sdk/lib/utils/api/search-api";
 import { ItemFields } from "@jellyfin/sdk/lib/generated-client/models/item-fields";
 import fetch from "node-fetch";
 import { resolve } from "path";
@@ -12,6 +13,7 @@ import {
     buildUpstreamImageUrl,
     ImageUrlOptions,
 } from "./imageUrl";
+import { mapItemToListItem, mapSearchHintToListItem } from "./listItems";
 
 const encodingSettings: Record<string, string> = require(resolve("./encodingSettings.js")).encodingSettings;
 
@@ -190,29 +192,40 @@ export default class JellyfinClient {
     }
 
     public async getLibraryItems(libraryId: string, searchTerm?: string, limit: number = 50, offset: number = 0) {
+        const term = searchTerm?.trim();
+        const imageUrl = this.getImageUrl.bind(this);
+
+        // SearchHints is the DB/index path. Do not use Items+MediaStreams here —
+        // that hydrates (and can probe) every hit and sounds like a raid rebuild.
+        if (term) {
+            const hintsResponse = await getSearchApi(this._api).get({
+                userId: this.userId!,
+                searchTerm: term,
+                parentId: libraryId,
+                startIndex: offset,
+                limit,
+                includeMedia: true,
+                includePeople: false,
+                includeGenres: false,
+                includeStudios: false,
+                includeArtists: false,
+            });
+            return (hintsResponse.data.SearchHints || [])
+                .map((hint) => mapSearchHintToListItem(hint, imageUrl))
+                .filter((row): row is NonNullable<typeof row> => row != null);
+        }
+
         const itemsResponse = await getItemsApi(this._api).getItems({
             userId: this.userId!,
             parentId: libraryId,
-            searchTerm,
             limit,
             startIndex: offset,
-            fields: [ItemFields.PrimaryImageAspectRatio, ItemFields.MediaStreams],
+            fields: [ItemFields.PrimaryImageAspectRatio],
         });
 
-        const items = itemsResponse.data.Items || [];
-        return items.map(item => ({
-            itemId: item.Id,
-            name: item.Name,
-            type: item.Type,
-            thumbnailUrl: this.getImageUrl(item.Id!, 'Primary', item.ImageTags),
-            hasSubtitles: (item.MediaStreams || []).some(stream => stream.Type === 'Subtitle'),
-            subtitles: (item.MediaStreams || [])
-                .filter(stream => stream.Type === 'Subtitle')
-                .map(stream => ({
-                    index: stream.Index,
-                    language: stream.Language || 'Unknown',
-                })),
-        }));
+        return (itemsResponse.data.Items || [])
+            .map((item) => mapItemToListItem(item, imageUrl, { includeSubtitles: false }))
+            .filter((row): row is NonNullable<typeof row> => row != null);
     }
 
     public async getTVShowSeasons(showId: string) {
@@ -235,23 +248,17 @@ export default class JellyfinClient {
         const episodesResponse = await getItemsApi(this._api).getItems({
             userId: this.userId!,
             parentId: seasonId,
-            fields: [ItemFields.PrimaryImageAspectRatio, ItemFields.MediaStreams],
+            fields: [ItemFields.PrimaryImageAspectRatio],
         });
 
-        const episodes = episodesResponse.data.Items || [];
-        return episodes.map(episode => ({
-            itemId: episode.Id,
-            name: episode.Name,
-            index: episode.IndexNumber,
-            thumbnailUrl: this.getImageUrl(episode.Id!, 'Primary', episode.ImageTags),
-            hasSubtitles: (episode.MediaStreams || []).some(stream => stream.Type === 'Subtitle'),
-            subtitles: (episode.MediaStreams || [])
-                .filter(stream => stream.Type === 'Subtitle')
-                .map(stream => ({
-                    index: stream.Index,
-                    language: stream.Language || 'Unknown',
-                })),
-        }));
+        const imageUrl = this.getImageUrl.bind(this);
+        return (episodesResponse.data.Items || [])
+            .map((episode) => {
+                const row = mapItemToListItem(episode, imageUrl, { includeSubtitles: false });
+                if (!row) return null;
+                return { ...row, index: episode.IndexNumber };
+            })
+            .filter((row): row is NonNullable<typeof row> => row != null);
     }
 
     public async getItemDetails(itemId: string) {
@@ -263,19 +270,7 @@ export default class JellyfinClient {
 
         const item = itemResponse.data.Items?.[0];
         if (!item) return null;
-
-        return {
-            itemId: item.Id,
-            name: item.Name,
-            type: item.Type,
-            thumbnailUrl: this.getImageUrl(item.Id!, 'Primary', item.ImageTags),
-            subtitles: (item.MediaStreams || [])
-                .filter(stream => stream.Type === 'Subtitle')
-                .map(stream => ({
-                    index: stream.Index,
-                    language: stream.Language || 'Unknown',
-                })),
-        };
+        return mapItemToListItem(item, this.getImageUrl.bind(this), { includeSubtitles: true });
     }
 
     /**
