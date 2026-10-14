@@ -2,21 +2,16 @@
 
 import Proxy, { ProxyOptions, PersistedProxy } from "./proxy";
 import ProxyStore from "./proxyStore";
+import { defaultTtlMs } from "./streamTtl";
 
 export default class ProxyManager {
     public static proxies: Map<string, Proxy> = new Map();
     private static store: ProxyStore | null = null;
     private static cleanTimer: NodeJS.Timeout | null = null;
 
-    private static readonly DEFAULT_TTL_MS = 1000 * 60 * 60 * 24;
-
     /** Default capability TTL: 24 hours. Override with PROXY_TTL_MS. */
     public static get PROXY_TIMEOUT(): number {
-        const parsed = parseInt(process.env.PROXY_TTL_MS || "", 10);
-        if (!Number.isFinite(parsed) || parsed <= 0) {
-            return ProxyManager.DEFAULT_TTL_MS;
-        }
-        return parsed;
+        return defaultTtlMs();
     }
 
     public static init(store?: ProxyStore) {
@@ -41,8 +36,12 @@ export default class ProxyManager {
         console.log(`ProxyManager loaded ${ProxyManager.proxies.size} active capability URL(s)`);
     }
 
-    public static createProxy(itemId: string, options?: ProxyOptions) {
-        const proxy = new Proxy(itemId, options);
+    public static createProxy(itemId: string, options?: ProxyOptions, ttlMs?: number) {
+        const resolvedTtl =
+            typeof ttlMs === "number" && Number.isFinite(ttlMs) && ttlMs > 0
+                ? ttlMs
+                : ProxyManager.PROXY_TIMEOUT;
+        const proxy = new Proxy(itemId, options, undefined, undefined, resolvedTtl);
         ProxyManager.proxies.set(proxy.id, proxy);
         ProxyManager.persist();
         return proxy;
@@ -87,7 +86,8 @@ export default class ProxyManager {
     }
 
     public static isExpired(proxy: Proxy, now: Date = new Date()): boolean {
-        return now.getTime() - proxy.createdAt.getTime() > ProxyManager.PROXY_TIMEOUT;
+        const ttl = proxy.ttlMs ?? ProxyManager.PROXY_TIMEOUT;
+        return now.getTime() - proxy.createdAt.getTime() > ttl;
     }
 
     private static persist() {
@@ -99,6 +99,7 @@ export default class ProxyManager {
             itemId: p.itemId,
             createdAt: p.createdAt.toISOString(),
             options: p.options,
+            ...(p.ttlMs != null ? { ttlMs: p.ttlMs } : {}),
         }));
         try {
             ProxyManager.store.save(entries);
@@ -115,6 +116,10 @@ export default class ProxyManager {
         if (Number.isNaN(createdAt.getTime())) {
             return null;
         }
-        return new Proxy(entry.itemId, entry.options, entry.id, createdAt);
+        const ttlMs =
+            typeof entry.ttlMs === "number" && Number.isFinite(entry.ttlMs) && entry.ttlMs > 0
+                ? entry.ttlMs
+                : null;
+        return new Proxy(entry.itemId, entry.options, entry.id, createdAt, ttlMs);
     }
 }

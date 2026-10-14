@@ -8,15 +8,25 @@ const CAPABILITY_ID_BYTES = 24;
 export default class Proxy {
     public readonly id: string;
     public readonly createdAt: Date;
+    /** Per-URL lifetime from mint; falls back to global default when missing (legacy store). */
+    public readonly ttlMs: number | null;
 
     constructor(
         public itemId: string,
         public options?: ProxyOptions,
         id?: string,
         createdAt?: Date,
+        ttlMs?: number | null,
     ) {
         this.id = id ?? randomBytes(CAPABILITY_ID_BYTES).toString("base64url");
         this.createdAt = createdAt ?? new Date();
+        this.ttlMs =
+            typeof ttlMs === "number" && Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : null;
+    }
+
+    expiresAt(defaultTtlMs: number): Date {
+        const ttl = this.ttlMs ?? defaultTtlMs;
+        return new Date(this.createdAt.getTime() + ttl);
     }
 }
 
@@ -45,4 +55,6 @@ export interface PersistedProxy {
     itemId: string;
     createdAt: string;
     options?: ProxyOptions;
+    /** Optional; absent on legacy records → use global PROXY_TTL_MS. */
+    ttlMs?: number;
 }

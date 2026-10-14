@@ -8,7 +8,12 @@ import { ProxyOptions, SubtitleMethod } from "../jellyfin/proxy/proxy";
 import { isAllowedImageType, sanitizeImageQuery } from "../jellyfin/imageUrl";
 import { buildUiConfig } from "./uiConfig";
 import { initMovieRequests } from "../request";
-// isSpaClientPath kept in spaFallback.ts for tests / docs; routes below mirror App.tsx.
+import { decodeAccessJwtPayload } from "../request/accessIdentity";
+import {
+    allowsExtendedTtl,
+    resolveTtlMs,
+} from "../jellyfin/proxy/streamTtl";
+// SPA deep-link routes below mirror client/App.tsx.
 
 const app = express();
 
@@ -139,11 +144,27 @@ app.get("/items/:itemId/details", requireJellyfin, async (req, res) => {
 });
 
 // Mint capability stream URL (behind Cloudflare Access on the UI host).
-// Auth lifecycle: token is the capability; after PROXY_TTL_MS expiry there is no refresh —
+// Auth lifecycle: token is the capability; after its per-URL TTL there is no refresh —
 // operator must re-mint via this endpoint. See docs/capability-urls.md.
 app.post("/i/:id", requireJellyfin, async (req, res) => {
     const itemId = req.params.id;
-    const { subtitleStreamIndex } = req.body;
+    const { subtitleStreamIndex, ttlHours } = req.body || {};
+
+    const jwt =
+        req.header("cf-access-jwt-assertion") ||
+        req.header("Cf-Access-Jwt-Assertion") ||
+        undefined;
+    const payload = decodeAccessJwtPayload(jwt || "");
+    const allowExtended = allowsExtendedTtl(payload);
+    const wanted = resolveTtlMs(ttlHours, { allowExtended: true });
+
+    if (wanted.extended && !allowExtended) {
+        res.status(403).json({
+            error: "Longer stream URLs require an admin Discord role.",
+            defaultHours: Math.round(ProxyManager.PROXY_TIMEOUT / (60 * 60 * 1000)),
+        });
+        return;
+    }
 
     const proxyOptions: ProxyOptions = {};
 
@@ -152,10 +173,11 @@ app.post("/i/:id", requireJellyfin, async (req, res) => {
         proxyOptions.subtitleMethod = SubtitleMethod.Encode;
     }
 
-    const proxy = ProxyManager.createProxy(itemId, proxyOptions);
+    const proxy = ProxyManager.createProxy(itemId, proxyOptions, wanted.ttlMs);
     res.json({
         id: proxy.id,
-        expiresAt: new Date(proxy.createdAt.getTime() + ProxyManager.PROXY_TIMEOUT).toISOString(),
+        expiresAt: proxy.expiresAt(ProxyManager.PROXY_TIMEOUT).toISOString(),
+        ttlMs: wanted.ttlMs,
     });
 });
 

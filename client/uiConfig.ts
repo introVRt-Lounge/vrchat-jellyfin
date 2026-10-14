@@ -2,6 +2,13 @@
 
 export type UiTheme = 'default' | 'lounge';
 
+export interface StreamDurationOption {
+  id: string;
+  label: string;
+  hours: number;
+  extended: boolean;
+}
+
 export interface UiConfig {
   theme: UiTheme;
   discord: {
@@ -9,12 +16,18 @@ export interface UiConfig {
     channelId: string;
   } | null;
   movieRequestsEnabled: boolean;
+  streamUrlDurations: StreamDurationOption[];
+  streamUrlDefaultHours: number;
+  streamUrlExtendedRoleGated: boolean;
 }
 
 export const DEFAULT_UI_CONFIG: UiConfig = {
   theme: 'default',
   discord: null,
   movieRequestsEnabled: false,
+  streamUrlDurations: [{ id: '24h', label: '24 hours', hours: 24, extended: false }],
+  streamUrlDefaultHours: 24,
+  streamUrlExtendedRoleGated: false,
 };
 
 export function discordChannelUrl(guildId: string, channelId: string): string {
@@ -35,7 +48,31 @@ export async function fetchUiConfig(): Promise<UiConfig> {
     const channelId = data.discord?.channelId?.trim() || '';
     const discord = guildId && channelId ? { guildId, channelId } : null;
     const movieRequestsEnabled = Boolean(data.movieRequestsEnabled);
-    return { theme, discord, movieRequestsEnabled };
+    const streamUrlDurations = Array.isArray(data.streamUrlDurations)
+      ? data.streamUrlDurations.filter(
+          (d): d is StreamDurationOption =>
+            !!d &&
+            typeof d.id === 'string' &&
+            typeof d.label === 'string' &&
+            typeof d.hours === 'number',
+        )
+      : DEFAULT_UI_CONFIG.streamUrlDurations;
+    const streamUrlDefaultHours =
+      typeof data.streamUrlDefaultHours === 'number'
+        ? data.streamUrlDefaultHours
+        : DEFAULT_UI_CONFIG.streamUrlDefaultHours;
+    const streamUrlExtendedRoleGated = Boolean(data.streamUrlExtendedRoleGated);
+    return {
+      theme,
+      discord,
+      movieRequestsEnabled,
+      streamUrlDurations:
+        streamUrlDurations.length > 0
+          ? streamUrlDurations
+          : DEFAULT_UI_CONFIG.streamUrlDurations,
+      streamUrlDefaultHours,
+      streamUrlExtendedRoleGated,
+    };
   } catch {
     return DEFAULT_UI_CONFIG;
   }

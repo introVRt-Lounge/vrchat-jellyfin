@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Card, CardBody } from '@heroui/react';
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Button,
+  Card,
+  CardBody,
+  Select,
+  SelectItem,
+} from '@heroui/react';
+import { fetchUiConfig, type StreamDurationOption } from '../uiConfig';
 
 interface Subtitle {
   index: number;
@@ -17,34 +29,49 @@ interface SubtitleModalProps {
 function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: SubtitleModalProps) {
   const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState<number | null>(null);
   const [generatedUrl, setGeneratedUrl] = useState<string>('');
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [durations, setDurations] = useState<StreamDurationOption[]>([
+    { id: '24h', label: '24 hours', hours: 24, extended: false },
+  ]);
+  const [ttlHours, setTtlHours] = useState(24);
+  const [extendedGated, setExtendedGated] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      setSelectedSubtitleIndex(null);
-      setGeneratedUrl('');
-      setError(null);
-      setCopied(false);
-    }
+    if (!isOpen) return;
+    setSelectedSubtitleIndex(null);
+    setGeneratedUrl('');
+    setExpiresAt(null);
+    setError(null);
+    setCopied(false);
+    let cancelled = false;
+    fetchUiConfig().then((cfg) => {
+      if (cancelled) return;
+      setDurations(cfg.streamUrlDurations);
+      setTtlHours(cfg.streamUrlDefaultHours);
+      setExtendedGated(cfg.streamUrlExtendedRoleGated);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen]);
 
   const getLanguageFlag = (language: string) => {
-    // Map common language codes to flag emojis
     const flagMap: { [key: string]: string } = {
-      'en': '🇺🇸',
-      'es': '🇪🇸',
-      'fr': '🇫🇷',
-      'de': '🇩🇪',
-      'it': '🇮🇹',
-      'pt': '🇵🇹',
-      'ru': '🇷🇺',
-      'ja': '🇯🇵',
-      'ko': '🇰🇷',
-      'zh': '🇨🇳',
-      'ar': '🇸🇦',
-      'hi': '🇮🇳',
+      en: '🇺🇸',
+      es: '🇪🇸',
+      fr: '🇫🇷',
+      de: '🇩🇪',
+      it: '🇮🇹',
+      pt: '🇵🇹',
+      ru: '🇷🇺',
+      ja: '🇯🇵',
+      ko: '🇰🇷',
+      zh: '🇨🇳',
+      ar: '🇸🇦',
+      hi: '🇮🇳',
     };
     return flagMap[language.toLowerCase()] || '🏳️';
   };
@@ -61,21 +88,22 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
         },
         body: JSON.stringify({
           subtitleStreamIndex: subtitleIndex,
+          ttlHours,
         }),
       });
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(`Failed to create proxy: ${response.status}`);
+        throw new Error(data.error || `Failed to create proxy: ${response.status}`);
       }
 
-      const data = await response.json();
       const proxyId = data.id;
       const url = `${window.location.origin}/v/${proxyId}`;
 
       setGeneratedUrl(url);
+      setExpiresAt(typeof data.expiresAt === 'string' ? data.expiresAt : null);
       setSelectedSubtitleIndex(subtitleIndex);
 
-      // Auto-copy to clipboard
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(url);
         setCopied(true);
@@ -83,7 +111,11 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
       }
     } catch (err) {
       console.error('Error creating proxy:', err);
-      setError('Failed to generate streaming URL. Please try again.');
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to generate streaming URL. Please try again.',
+      );
     } finally {
       setLoading(false);
     }
@@ -97,6 +129,13 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
     }
   };
 
+  const expiresLabel = expiresAt
+    ? new Date(expiresAt).toLocaleString(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      })
+    : null;
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
       <ModalContent>
@@ -108,13 +147,37 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
           <div className="mb-4">
             <h3 className="font-semibold mb-2">{itemName}</h3>
             <p className="text-sm text-gray-400">
-              Choose subtitle track or select "No Subtitles"
+              Choose subtitle track or select &quot;No Subtitles&quot;
             </p>
           </div>
 
           {!generatedUrl ? (
             <div className="space-y-3">
-              {/* No subtitles option */}
+              <Select
+                label="URL lifetime"
+                aria-label="Stream URL lifetime"
+                selectedKeys={new Set([String(ttlHours)])}
+                onSelectionChange={(keys) => {
+                  const key = Array.from(keys as Set<string>)[0];
+                  const n = Number(key);
+                  if (Number.isFinite(n) && n > 0) setTtlHours(n);
+                }}
+                size="sm"
+                className="max-w-xs"
+                description={
+                  extendedGated
+                    ? 'Longer than default may require an admin Discord role.'
+                    : 'After this time the stream URL stops working — remint from here.'
+                }
+              >
+                {durations.map((d) => (
+                  <SelectItem key={String(d.hours)} textValue={d.label}>
+                    {d.label}
+                    {d.extended ? ' (extended)' : ''}
+                  </SelectItem>
+                ))}
+              </Select>
+
               <Card
                 isPressable
                 className="hover:bg-gray-700 transition-colors"
@@ -133,7 +196,6 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
                 </CardBody>
               </Card>
 
-              {/* Subtitle options */}
               {subtitles.map((subtitle) => (
                 <Card
                   key={subtitle.index}
@@ -147,7 +209,9 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
                         <span className="text-lg">{getLanguageFlag(subtitle.language)}</span>
                         <div>
                           <span className="font-medium capitalize">
-                            {subtitle.language === 'Unknown' ? 'Unknown Language' : subtitle.language}
+                            {subtitle.language === 'Unknown'
+                              ? 'Unknown Language'
+                              : subtitle.language}
                           </span>
                           <span className="text-sm text-gray-400 ml-2">
                             (Track {subtitle.index})
@@ -161,6 +225,12 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
                   </CardBody>
                 </Card>
               ))}
+
+              {error && (
+                <div className="p-3 bg-red-900/20 border border-red-600 rounded-lg">
+                  <p className="text-red-400 text-sm">{error}</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
@@ -184,13 +254,18 @@ function SubtitleModal({ isOpen, onClose, itemId, itemName, subtitles }: Subtitl
                   />
                   <Button
                     onPress={copyToClipboard}
-                    variant={copied ? "solid" : "ghost"}
-                    color={copied ? "success" : "primary"}
+                    variant={copied ? 'solid' : 'ghost'}
+                    color={copied ? 'success' : 'primary'}
                     size="sm"
                   >
                     {copied ? 'Copied!' : 'Copy'}
                   </Button>
                 </div>
+                {expiresLabel && (
+                  <p className="text-xs text-gray-400 mt-3">
+                    Expires {expiresLabel}. After that, remint a new URL here — no refresh.
+                  </p>
+                )}
               </div>
 
               {error && (

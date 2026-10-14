@@ -1,6 +1,12 @@
 /** Public UI config (no secrets). Served at GET /config for the Vite SPA. */
 
 import { buildMovieRequestFeatureConfig } from "../request/featureConfig";
+import {
+    defaultTtlMs,
+    extendedRoleIds,
+    streamDurationOptions,
+    type StreamDurationOption,
+} from "../jellyfin/proxy/streamTtl";
 
 export type UiTheme = "default" | "lounge";
 
@@ -12,6 +18,11 @@ export interface UiConfig {
     } | null;
     /** Empty-search movie request CTA (Radarr + Discord notify). */
     movieRequestsEnabled: boolean;
+    /** Capability stream URL duration presets for the mint UI. */
+    streamUrlDurations: StreamDurationOption[];
+    streamUrlDefaultHours: number;
+    /** When true, longer-than-default options need a Discord role (server enforces). */
+    streamUrlExtendedRoleGated: boolean;
 }
 
 function cleanId(value: string | undefined): string {
@@ -34,10 +45,16 @@ export function buildUiConfig(env: NodeJS.ProcessEnv = process.env): UiConfig {
     const discord =
         guildId && channelId ? { guildId, channelId } : null;
 
+    const streamUrlDurations = streamDurationOptions(env);
+    const streamUrlDefaultHours = Math.round(defaultTtlMs(env) / (60 * 60 * 1000));
+
     return {
         theme: parseUiTheme(env.UI_THEME),
         discord,
         movieRequestsEnabled: buildMovieRequestFeatureConfig(env).enabled,
+        streamUrlDurations,
+        streamUrlDefaultHours,
+        streamUrlExtendedRoleGated: extendedRoleIds(env).length > 0,
     };
 }
 
