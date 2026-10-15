@@ -237,14 +237,23 @@ function SubtitleModal({
     : null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="lg"
+      scrollBehavior="inside"
+      classNames={{
+        base: 'max-h-[min(92dvh,56rem)]',
+        body: 'min-h-0',
+      }}
+    >
       <ModalContent>
         <ModalHeader>
           <h2 className="text-xl font-bold">Share a watch link</h2>
         </ModalHeader>
 
         <ModalBody>
-          <div className="mb-4">
+          <div className="mb-4 shrink-0">
             <h3 className="font-semibold mb-2">{itemName}</h3>
             <p className="text-sm text-gray-400">
               Choose subtitle track or select &quot;No Subtitles&quot;
@@ -255,9 +264,9 @@ function SubtitleModal({
           </div>
 
           {!generatedUrl ? (
-            <div className="space-y-3">
+            <div className="flex min-h-0 flex-col gap-3">
               {fanoutEnabled && (
-                <div className="space-y-2 rounded-lg border border-gray-700 bg-gray-800/40 p-3">
+                <div className="shrink-0 space-y-2 rounded-lg border border-gray-700 bg-gray-800/40 p-3">
                   <RadioGroup
                     label="Who's watching?"
                     description="Just you and a friend, or do you have a group?"
@@ -311,7 +320,7 @@ function SubtitleModal({
                     if (Number.isFinite(n) && n > 0) setTtlHours(n);
                   }}
                   size="sm"
-                  className="max-w-xs"
+                  className="max-w-xs shrink-0"
                   description={
                     extendedGated
                       ? 'Longer than default may require an admin Discord role.'
@@ -328,63 +337,69 @@ function SubtitleModal({
               )}
 
               {useFanout && (
-                <p className="text-xs text-amber-400/90">
+                <p className="shrink-0 text-xs text-amber-400/90">
                   Preparing the group link can take a few minutes (encode +
                   upload). Link lasts about a day on Object Storage - not the
                   proxy path.
                 </p>
               )}
 
-              <Card
-                isPressable
-                className="hover:bg-gray-700 transition-colors"
-                onPress={() => handleSubtitleSelect(null)}
+              <div
+                className="min-h-0 max-h-[min(50dvh,24rem)] space-y-3 overflow-y-auto overscroll-contain pr-1"
+                role="listbox"
+                aria-label="Subtitle tracks"
               >
-                <CardBody className="py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">🏳️</span>
-                      <span className="font-medium">No Subtitles</span>
-                    </div>
-                    {loading && selectedSubtitleIndex === null && (
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
-                    )}
-                  </div>
-                </CardBody>
-              </Card>
-
-              {subtitles.map((subtitle) => (
                 <Card
-                  key={subtitle.index}
                   isPressable
                   className="hover:bg-gray-700 transition-colors"
-                  onPress={() => handleSubtitleSelect(subtitle.index)}
+                  onPress={() => handleSubtitleSelect(null)}
                 >
                   <CardBody className="py-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <span className="text-lg">{getLanguageFlag(subtitle.language)}</span>
-                        <div>
-                          <span className="font-medium capitalize">
-                            {subtitle.language === 'Unknown'
-                              ? 'Unknown Language'
-                              : subtitle.language}
-                          </span>
-                          <span className="text-sm text-gray-400 ml-2">
-                            (Track {subtitle.index})
-                          </span>
-                        </div>
+                        <span className="text-lg">🏳️</span>
+                        <span className="font-medium">No Subtitles</span>
                       </div>
-                      {loading && selectedSubtitleIndex === subtitle.index && (
+                      {loading && selectedSubtitleIndex === null && (
                         <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
                       )}
                     </div>
                   </CardBody>
                 </Card>
-              ))}
+
+                {subtitles.map((subtitle) => (
+                  <Card
+                    key={subtitle.index}
+                    isPressable
+                    className="hover:bg-gray-700 transition-colors"
+                    onPress={() => handleSubtitleSelect(subtitle.index)}
+                  >
+                    <CardBody className="py-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">{getLanguageFlag(subtitle.language)}</span>
+                          <div>
+                            <span className="font-medium capitalize">
+                              {subtitle.language === 'Unknown'
+                                ? 'Unknown Language'
+                                : subtitle.language}
+                            </span>
+                            <span className="text-sm text-gray-400 ml-2">
+                              (Track {subtitle.index})
+                            </span>
+                          </div>
+                        </div>
+                        {loading && selectedSubtitleIndex === subtitle.index && (
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+                        )}
+                      </div>
+                    </CardBody>
+                  </Card>
+                ))}
+              </div>
 
               {error && (
-                <div className="p-3 bg-red-900/20 border border-red-600 rounded-lg">
+                <div className="shrink-0 p-3 bg-red-900/20 border border-red-600 rounded-lg">
                   <p className="text-red-400 text-sm">{error}</p>
                 </div>
               )}
