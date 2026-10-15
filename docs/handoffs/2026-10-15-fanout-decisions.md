@@ -46,6 +46,18 @@ What we have today:
 
 Plan: small worker helper (script or allowed binary) that: bake HLS locally → PUT objects to OCI (S3-compat) → print/return final playlist URL (or write a sidecar `result.json`). App submits that job, waits, returns URL. Studio/Teemo/homelab all work without a shared filesystem.
 
+## Mint copy (what users see)
+
+| Surface | Dev (clip cap on) | Prod intent (`OCI_HLS_MAX_SECONDS=0`) |
+| --- | --- | --- |
+| Radio labels | Just friends / group - **no** "90s" in the choice | Same |
+| Clip warning | Amber note: "Dev only: capped at first Ns" | Hidden |
+| Group wait | "Preparing… can take a few minutes" | Same - **until** progressive bake ships |
+
+**Today's bake path is synchronous:** mint waits until encode+upload finish, then returns the playlist URL. That wait is real in prod for a full title; the **90s length** is only the spike/dev safety rail.
+
+**Progressive bake** (return proxy URL immediately, swap to OCI when ready) was floated earlier and is **not locked**. If we ship it, drop the "few minutes" wait copy at mint time.
+
 ## Prod still off until
 
 1. Mint UI with you+friend vs group 3+ + explainer/diagram  
@@ -54,3 +66,4 @@ Plan: small worker helper (script or allowed binary) that: bake HLS locally → 
 4. Vanity subdomain  
 5. Load/quota evidence  
 6. Teemo worker when ready  
+7. Decide: sync wait (honest "few minutes") vs progressive (instant mint, no bake wait copy)
