@@ -7,6 +7,7 @@ import {
     streamDurationOptions,
     type StreamDurationOption,
 } from "../jellyfin/proxy/streamTtl";
+import { buildOciHlsPublishConfig } from "../oci/config";
 
 export type UiTheme = "default" | "lounge";
 
@@ -23,6 +24,10 @@ export interface UiConfig {
     streamUrlDefaultHours: number;
     /** When true, longer-than-default options need a Discord role (server enforces). */
     streamUrlExtendedRoleGated: boolean;
+    /** Dev/spike: mint can publish HLS to OCI Object Storage for multi-viewer fan-out. */
+    ociHlsFanoutEnabled: boolean;
+    /** Bake cap advertised in the mint UI (0 = full title). */
+    ociHlsMaxSeconds: number;
 }
 
 function cleanId(value: string | undefined): string {
@@ -47,6 +52,7 @@ export function buildUiConfig(env: NodeJS.ProcessEnv = process.env): UiConfig {
 
     const streamUrlDurations = streamDurationOptions(env);
     const streamUrlDefaultHours = Math.round(defaultTtlMs(env) / (60 * 60 * 1000));
+    const oci = buildOciHlsPublishConfig(env);
 
     return {
         theme: parseUiTheme(env.UI_THEME),
@@ -55,6 +61,8 @@ export function buildUiConfig(env: NodeJS.ProcessEnv = process.env): UiConfig {
         streamUrlDurations,
         streamUrlDefaultHours,
         streamUrlExtendedRoleGated: extendedRoleIds(env).length > 0,
+        ociHlsFanoutEnabled: oci.enabled,
+        ociHlsMaxSeconds: oci.maxSeconds,
     };
 }
 

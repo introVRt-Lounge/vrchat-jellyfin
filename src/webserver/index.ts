@@ -13,6 +13,8 @@ import {
     allowsExtendedTtl,
     resolveTtlMs,
 } from "../jellyfin/proxy/streamTtl";
+import { buildOciHlsPublishConfig } from "../oci/config";
+import { publishItemHlsFanout } from "../oci/publish";
 // SPA deep-link routes below mirror client/App.tsx.
 
 const app = express();
@@ -179,6 +181,53 @@ app.post("/i/:id", requireJellyfin, async (req, res) => {
         expiresAt: proxy.expiresAt(ProxyManager.PROXY_TIMEOUT).toISOString(),
         ttlMs: wanted.ttlMs,
     });
+});
+
+/**
+ * Dev/spike fan-out: bake HLS from Jellyfin and upload to OCI Object Storage.
+ * Gated by OCI_HLS_PUBLISH + credentials. Returns a public m3u8 URL (not /v/:id).
+ * Auth lifecycle: object lifetime is the bucket lifecycle (currently ~1 day); no refresh.
+ */
+app.post("/i/:id/fanout", requireJellyfin, async (req, res) => {
+    const ociCfg = buildOciHlsPublishConfig();
+    if (!ociCfg.enabled) {
+        res.status(404).json({ error: "OCI HLS fan-out is not enabled on this host." });
+        return;
+    }
+
+    const itemId = req.params.id;
+    const { subtitleStreamIndex } = req.body || {};
+    const proxyOptions: ProxyOptions = {};
+    if (subtitleStreamIndex != null) {
+        proxyOptions.subtitleStreamIndex = subtitleStreamIndex;
+        proxyOptions.subtitleMethod = SubtitleMethod.Encode;
+    }
+
+    // Long bake — keep the socket alive for Traefik/browser.
+    req.setTimeout(0);
+    res.setTimeout(0);
+
+    try {
+        const inputUrl = client.buildVideoStreamUrl(itemId, proxyOptions);
+        console.log(
+            `OCI HLS fan-out bake start item=${itemId} maxSeconds=${ociCfg.maxSeconds}`,
+        );
+        const result = await publishItemHlsFanout({
+            inputUrl,
+            itemId,
+            cfg: ociCfg,
+        });
+        console.log(`OCI HLS fan-out ready ${result.playlistUrl}`);
+        res.json(result);
+    } catch (err) {
+        console.error("OCI HLS fan-out failed:", err);
+        res.status(500).json({
+            error:
+                err instanceof Error
+                    ? err.message
+                    : "Failed to publish HLS fan-out",
+        });
+    }
 });
 
 // Proxy Jellyfin artwork. Browser only ever sees /img/... — api_key stays server-side.
