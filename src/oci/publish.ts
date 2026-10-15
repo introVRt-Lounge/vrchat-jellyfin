@@ -3,6 +3,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { buildOciHlsPublishConfig, type OciHlsPublishConfig } from "./config";
 import { bakeHlsFromUrl, cleanupBakeDir } from "./hlsBake";
+import { bakeHlsViaDffmpeg } from "./hlsBakeDffmpeg";
 import { absolutizeHlsPlaylist, publicObjectUrl } from "./playlist";
 import { createOciS3Client, putObjectBuffer, putObjectFile } from "./s3Upload";
 
@@ -12,6 +13,7 @@ export interface FanoutPublishResult {
     prefix: string;
     maxSeconds: number;
     segmentCount: number;
+    bakeMode: "local" | "dffmpeg";
 }
 
 function stamp(): string {
@@ -41,7 +43,10 @@ export async function publishItemHlsFanout(opts: {
     const jobId = `${stamp()}-${randomBytes(4).toString("hex")}`;
     const prefix = `${cfg.keyPrefix}/${opts.itemId}/${jobId}`;
 
-    const bake = await bakeHlsFromUrl(opts.inputUrl, cfg, jobId);
+    const bake =
+        cfg.bakeMode === "dffmpeg"
+            ? await bakeHlsViaDffmpeg(opts.inputUrl, cfg, jobId)
+            : await bakeHlsFromUrl(opts.inputUrl, cfg, jobId);
     const s3 = createOciS3Client(cfg);
 
     try {
@@ -71,6 +76,7 @@ export async function publishItemHlsFanout(opts: {
             prefix,
             maxSeconds: cfg.maxSeconds,
             segmentCount: bake.segmentPaths.length,
+            bakeMode: cfg.bakeMode,
         };
     } finally {
         await cleanupBakeDir(bake.workDir).catch(() => undefined);

@@ -1,5 +1,16 @@
 /** OCI Object Storage HLS fan-out publish config (env-gated; off by default). */
 
+export type OciHlsBakeMode = "local" | "dffmpeg";
+
+export interface DffmpegBakeConfig {
+    enabled: boolean;
+    coordinatorUrl: string;
+    clientId: string;
+    hmacKeyB64: string;
+    pathVar: string;
+    localDir: string;
+}
+
 export interface OciHlsPublishConfig {
     enabled: boolean;
     accessKey: string;
@@ -19,8 +30,18 @@ export interface OciHlsPublishConfig {
     maxSeconds: number;
     /** HLS segment duration target (seconds). */
     hlsTime: number;
-    /** Working directory for ffmpeg output before upload. */
+    /** Working directory for local ffmpeg output before upload. */
     workDir: string;
+    /** local = in-process ffmpeg-static; dffmpeg = estate encode bus. */
+    bakeMode: OciHlsBakeMode;
+    dffmpeg: DffmpegBakeConfig;
+    /**
+     * Rewrite Jellyfin compose-DNS URLs to this origin before handing off to
+     * workers (e.g. http://127.0.0.1:8096 on the proxmox host).
+     */
+    sourceBase: string;
+    /** libx264 (default) or h264_nvenc when the worker has NVENC. */
+    videoEncoder: string;
 }
 
 function clean(value: string | undefined): string {
@@ -61,6 +82,18 @@ export function buildOciHlsPublishConfig(
     const maxSeconds = parseNonNegInt(env.OCI_HLS_MAX_SECONDS, 120);
     const hlsTime = Math.max(2, parseNonNegInt(env.OCI_HLS_TIME, 6) || 6);
     const workDir = clean(env.OCI_HLS_WORK_DIR) || "/tmp/vrchat-oci-hls";
+    const sourceBase = clean(env.OCI_HLS_SOURCE_BASE).replace(/\/+$/, "");
+    const videoEncoder = clean(env.OCI_HLS_VIDEO_ENCODER) || "libx264";
+
+    const coordinatorUrl = clean(env.DFFMPEG_COORDINATOR_URL).replace(/\/+$/, "");
+    const clientId = clean(env.DFFMPEG_CLIENT_ID);
+    const hmacKeyB64 = clean(env.DFFMPEG_HMAC_KEY);
+    const pathVar = clean(env.DFFMPEG_FANOUT_PATH_VAR) || "Fanout";
+    const localDir =
+        clean(env.DFFMPEG_FANOUT_LOCAL_DIR) || "/var/lib/dffmpeg/work";
+    const dffmpegReady = Boolean(coordinatorUrl && clientId && hmacKeyB64);
+    const wantDffmpeg = clean(env.OCI_HLS_BAKE_MODE).toLowerCase() === "dffmpeg";
+    const bakeMode: OciHlsBakeMode = wantDffmpeg && dffmpegReady ? "dffmpeg" : "local";
 
     const credentialsOk = Boolean(
         accessKey && secretKey && namespace && bucket && endpoint && publicBase,
@@ -80,5 +113,16 @@ export function buildOciHlsPublishConfig(
         maxSeconds,
         hlsTime,
         workDir,
+        bakeMode,
+        dffmpeg: {
+            enabled: bakeMode === "dffmpeg",
+            coordinatorUrl,
+            clientId,
+            hmacKeyB64,
+            pathVar,
+            localDir,
+        },
+        sourceBase,
+        videoEncoder,
     };
 }

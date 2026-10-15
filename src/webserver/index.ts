@@ -207,7 +207,7 @@ app.post("/i/:id/fanout", requireJellyfin, async (req, res) => {
         // make ffmpeg fail with Input/output error against Jellyfin.
         const inputUrl = client.buildStaticMediaUrl(itemId);
         console.log(
-            `OCI HLS fan-out bake start item=${itemId} maxSeconds=${ociCfg.maxSeconds}`,
+            `OCI HLS fan-out bake start item=${itemId} maxSeconds=${ociCfg.maxSeconds} bakeMode=${ociCfg.bakeMode} encoder=${ociCfg.videoEncoder}`,
         );
         const result = await publishItemHlsFanout({
             inputUrl,
