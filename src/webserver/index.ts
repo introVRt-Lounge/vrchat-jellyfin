@@ -48,6 +48,13 @@ app.get("/og.png", (_req, res) => {
     res.sendFile("og.png", { root: "dist/client" });
 });
 
+// Silence browser favicon noise; reuse OG art.
+app.get("/favicon.ico", (_req, res) => {
+    res.type("png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.sendFile("og.png", { root: "dist/client" });
+});
+
 // Public announce card for Discord link previews (Access Bypass).
 app.get("/share", (_req, res) => {
     res.setHeader("Cache-Control", "public, max-age=300");
