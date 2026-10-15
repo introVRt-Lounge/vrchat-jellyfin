@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   CardBody,
+  Checkbox,
   Select,
   SelectItem,
 } from '@heroui/react';
@@ -44,6 +45,9 @@ function SubtitleModal({
   ]);
   const [ttlHours, setTtlHours] = useState(24);
   const [extendedGated, setExtendedGated] = useState(false);
+  const [fanoutEnabled, setFanoutEnabled] = useState(false);
+  const [fanoutMaxSeconds, setFanoutMaxSeconds] = useState(120);
+  const [useFanout, setUseFanout] = useState(false);
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [loadingSubtitles, setLoadingSubtitles] = useState(false);
 
@@ -54,6 +58,7 @@ function SubtitleModal({
     setExpiresAt(null);
     setError(null);
     setCopied(false);
+    setUseFanout(false);
     setSubtitles(subtitlesProp.length ? subtitlesProp : []);
     let cancelled = false;
     fetchUiConfig().then((cfg) => {
@@ -61,6 +66,8 @@ function SubtitleModal({
       setDurations(cfg.streamUrlDurations);
       setTtlHours(cfg.streamUrlDefaultHours);
       setExtendedGated(cfg.streamUrlExtendedRoleGated);
+      setFanoutEnabled(cfg.ociHlsFanoutEnabled);
+      setFanoutMaxSeconds(cfg.ociHlsMaxSeconds);
     });
     // List/search no longer ships MediaStreams — load once when minting.
     setLoadingSubtitles(true);
@@ -116,6 +123,39 @@ function SubtitleModal({
     setError(null);
 
     try {
+      if (useFanout && fanoutEnabled) {
+        const response = await fetch(`/i/${itemId}/fanout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            subtitleStreamIndex: subtitleIndex,
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || `Fan-out publish failed: ${response.status}`);
+        }
+
+        const url = typeof data.playlistUrl === 'string' ? data.playlistUrl : '';
+        if (!url) {
+          throw new Error('Fan-out publish returned no playlist URL');
+        }
+
+        setGeneratedUrl(url);
+        setExpiresAt(null);
+        setSelectedSubtitleIndex(subtitleIndex);
+
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(url);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 3000);
+        }
+        return;
+      }
+
       const response = await fetch(`/i/${itemId}`, {
         method: 'POST',
         headers: {
@@ -191,30 +231,52 @@ function SubtitleModal({
 
           {!generatedUrl ? (
             <div className="space-y-3">
-              <Select
-                label="URL lifetime"
-                aria-label="Stream URL lifetime"
-                selectedKeys={new Set([String(ttlHours)])}
-                onSelectionChange={(keys) => {
-                  const key = Array.from(keys as Set<string>)[0];
-                  const n = Number(key);
-                  if (Number.isFinite(n) && n > 0) setTtlHours(n);
-                }}
-                size="sm"
-                className="max-w-xs"
-                description={
-                  extendedGated
-                    ? 'Longer than default may require an admin Discord role.'
-                    : 'After this time the stream URL stops working — remint from here.'
-                }
-              >
-                {durations.map((d) => (
-                  <SelectItem key={String(d.hours)} textValue={d.label}>
-                    {d.label}
-                    {d.extended ? ' (extended)' : ''}
-                  </SelectItem>
-                ))}
-              </Select>
+              {fanoutEnabled && (
+                <Checkbox
+                  isSelected={useFanout}
+                  onValueChange={setUseFanout}
+                  size="sm"
+                >
+                  Oracle Object Storage fan-out (HLS)
+                  {fanoutMaxSeconds > 0
+                    ? ` — bakes first ${fanoutMaxSeconds}s`
+                    : ' — full title bake'}
+                </Checkbox>
+              )}
+
+              {!useFanout && (
+                <Select
+                  label="URL lifetime"
+                  aria-label="Stream URL lifetime"
+                  selectedKeys={new Set([String(ttlHours)])}
+                  onSelectionChange={(keys) => {
+                    const key = Array.from(keys as Set<string>)[0];
+                    const n = Number(key);
+                    if (Number.isFinite(n) && n > 0) setTtlHours(n);
+                  }}
+                  size="sm"
+                  className="max-w-xs"
+                  description={
+                    extendedGated
+                      ? 'Longer than default may require an admin Discord role.'
+                      : 'After this time the stream URL stops working — remint from here.'
+                  }
+                >
+                  {durations.map((d) => (
+                    <SelectItem key={String(d.hours)} textValue={d.label}>
+                      {d.label}
+                      {d.extended ? ' (extended)' : ''}
+                    </SelectItem>
+                  ))}
+                </Select>
+              )}
+
+              {useFanout && (
+                <p className="text-xs text-amber-400/90">
+                  Bake + upload can take a few minutes. Playlist URL points at
+                  objectstorage (bucket lifecycle ~1 day). Not the prod proxy path.
+                </p>
+              )}
 
               <Card
                 isPressable
@@ -302,6 +364,12 @@ function SubtitleModal({
                 {expiresLabel && (
                   <p className="text-xs text-gray-400 mt-3">
                     Expires {expiresLabel}. After that, remint a new URL here — no refresh.
+                  </p>
+                )}
+                {!expiresLabel && generatedUrl.includes('objectstorage') && (
+                  <p className="text-xs text-gray-400 mt-3">
+                    Object Storage fan-out URL. Lifetime follows the bucket lifecycle
+                    (~1 day) — remint when gone.
                   </p>
                 )}
               </div>

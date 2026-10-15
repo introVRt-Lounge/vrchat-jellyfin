@@ -19,6 +19,8 @@ export interface UiConfig {
   streamUrlDurations: StreamDurationOption[];
   streamUrlDefaultHours: number;
   streamUrlExtendedRoleGated: boolean;
+  ociHlsFanoutEnabled: boolean;
+  ociHlsMaxSeconds: number;
 }
 
 export const DEFAULT_UI_CONFIG: UiConfig = {
@@ -28,6 +30,8 @@ export const DEFAULT_UI_CONFIG: UiConfig = {
   streamUrlDurations: [{ id: '24h', label: '24 hours', hours: 24, extended: false }],
   streamUrlDefaultHours: 24,
   streamUrlExtendedRoleGated: false,
+  ociHlsFanoutEnabled: false,
+  ociHlsMaxSeconds: 120,
 };
 
 export function discordChannelUrl(guildId: string, channelId: string): string {
@@ -62,6 +66,11 @@ export async function fetchUiConfig(): Promise<UiConfig> {
         ? data.streamUrlDefaultHours
         : DEFAULT_UI_CONFIG.streamUrlDefaultHours;
     const streamUrlExtendedRoleGated = Boolean(data.streamUrlExtendedRoleGated);
+    const ociHlsFanoutEnabled = Boolean(data.ociHlsFanoutEnabled);
+    const ociHlsMaxSeconds =
+      typeof data.ociHlsMaxSeconds === 'number'
+        ? data.ociHlsMaxSeconds
+        : DEFAULT_UI_CONFIG.ociHlsMaxSeconds;
     return {
       theme,
       discord,
@@ -72,6 +81,8 @@ export async function fetchUiConfig(): Promise<UiConfig> {
           : DEFAULT_UI_CONFIG.streamUrlDurations,
       streamUrlDefaultHours,
       streamUrlExtendedRoleGated,
+      ociHlsFanoutEnabled,
+      ociHlsMaxSeconds,
     };
   } catch {
     return DEFAULT_UI_CONFIG;
