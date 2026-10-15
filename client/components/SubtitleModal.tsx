@@ -8,7 +8,8 @@ import {
   Button,
   Card,
   CardBody,
-  Checkbox,
+  RadioGroup,
+  Radio,
   Select,
   SelectItem,
 } from '@heroui/react';
@@ -25,6 +26,28 @@ interface SubtitleModalProps {
   itemId: string;
   itemName: string;
   subtitles: Subtitle[];
+}
+
+/** 1–2 people → proxy; 3+ → OCI HLS fan-out. */
+type AudienceSize = 'friends' | 'group';
+
+function AudienceFlowDiagram() {
+  return (
+    <pre
+      className="mt-3 overflow-x-auto rounded bg-gray-900/80 p-3 text-[11px] leading-relaxed text-gray-300 font-mono"
+      aria-hidden="true"
+    >{`Just you + a friend (1–2)
+  you ──mint──▶ /v/… proxy ──▶ headset(s)
+                 (TTL you pick)
+
+Group (3+)
+  you ──mint──▶ bake once ──▶ Object Storage
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+           headset        headset         headset
+           (same public playlist URL ~1 day)`}</pre>
+  );
 }
 
 function SubtitleModal({
@@ -47,9 +70,11 @@ function SubtitleModal({
   const [extendedGated, setExtendedGated] = useState(false);
   const [fanoutEnabled, setFanoutEnabled] = useState(false);
   const [fanoutMaxSeconds, setFanoutMaxSeconds] = useState(120);
-  const [useFanout, setUseFanout] = useState(false);
+  const [audience, setAudience] = useState<AudienceSize>('friends');
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [loadingSubtitles, setLoadingSubtitles] = useState(false);
+
+  const useFanout = fanoutEnabled && audience === 'group';
 
   useEffect(() => {
     if (!isOpen) return;
@@ -58,7 +83,7 @@ function SubtitleModal({
     setExpiresAt(null);
     setError(null);
     setCopied(false);
-    setUseFanout(false);
+    setAudience('friends');
     setSubtitles(subtitlesProp.length ? subtitlesProp : []);
     let cancelled = false;
     fetchUiConfig().then((cfg) => {
@@ -123,7 +148,7 @@ function SubtitleModal({
     setError(null);
 
     try {
-      if (useFanout && fanoutEnabled) {
+      if (useFanout) {
         const response = await fetch(`/i/${itemId}/fanout`, {
           method: 'POST',
           headers: {
@@ -215,7 +240,7 @@ function SubtitleModal({
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
       <ModalContent>
         <ModalHeader>
-          <h2 className="text-xl font-bold">Select Subtitles</h2>
+          <h2 className="text-xl font-bold">Share a watch link</h2>
         </ModalHeader>
 
         <ModalBody>
@@ -232,16 +257,44 @@ function SubtitleModal({
           {!generatedUrl ? (
             <div className="space-y-3">
               {fanoutEnabled && (
-                <Checkbox
-                  isSelected={useFanout}
-                  onValueChange={setUseFanout}
-                  size="sm"
-                >
-                  Oracle Object Storage fan-out (HLS)
-                  {fanoutMaxSeconds > 0
-                    ? ` — bakes first ${fanoutMaxSeconds}s`
-                    : ' — full title bake'}
-                </Checkbox>
+                <div className="space-y-2 rounded-lg border border-gray-700 bg-gray-800/40 p-3">
+                  <RadioGroup
+                    label="Who's watching?"
+                    description="Just you and a friend, or do you have a group?"
+                    value={audience}
+                    onValueChange={(v) => {
+                      if (v === 'friends' || v === 'group') setAudience(v);
+                    }}
+                    size="sm"
+                    orientation="vertical"
+                  >
+                    <Radio value="friends">
+                      Just you and a friend (1–2)
+                    </Radio>
+                    <Radio value="group">
+                      A group (3+)
+                      {fanoutMaxSeconds > 0
+                        ? ` — bakes first ${fanoutMaxSeconds}s`
+                        : ' — full title bake'}
+                    </Radio>
+                  </RadioGroup>
+
+                  <details className="text-xs text-gray-400">
+                    <summary className="cursor-pointer text-gray-300 hover:text-white">
+                      Why does this matter?
+                    </summary>
+                    <div className="mt-2 space-y-2 text-gray-400">
+                      <p>
+                        You are minting a link that lasts about a day so someone
+                        can go watch. One or two people can stream through our
+                        proxy. A group of three or more would hammer that path
+                        once each - so we bake the video once, put it on Object
+                        Storage, and everyone pulls the same playlist.
+                      </p>
+                      <AudienceFlowDiagram />
+                    </div>
+                  </details>
+                </div>
               )}
 
               {!useFanout && (
@@ -273,8 +326,8 @@ function SubtitleModal({
 
               {useFanout && (
                 <p className="text-xs text-amber-400/90">
-                  Bake + upload can take a few minutes. Playlist URL points at
-                  objectstorage (bucket lifecycle ~1 day). Not the prod proxy path.
+                  Bake + upload can take a few minutes. Group link points at
+                  objectstorage (~1 day). Not the proxy path.
                 </p>
               )}
 
