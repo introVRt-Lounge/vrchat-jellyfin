@@ -23,7 +23,14 @@ function App() {
 
   // Avoid a flash of default chrome before lounge tokens apply.
   if (!ready) {
-    return <div className="min-h-screen bg-gray-900 text-white" aria-busy="true" />;
+    return (
+      <div
+        className="app-shell min-h-screen bg-gray-900 text-white flex items-center justify-center"
+        aria-busy="true"
+      >
+        <p className="lounge-eyebrow">Loading…</p>
+      </div>
+    );
   }
 
   return (
