@@ -28,8 +28,24 @@ export async function bakeHlsFromUrl(
     const segmentPattern = path.join(workDir, "seg%03d.ts");
 
     await new Promise<void>((resolve, reject) => {
-        let command = ffmpeg(inputUrl)
-            .inputOptions(["-user_agent", "Jellyfin VRChat Proxy (oci-hls)"])
+        const inputOptions = [
+            "-user_agent",
+            "Jellyfin VRChat Proxy (oci-hls)",
+            // HTTP/Jellyfin streams can flap; allow short reconnects.
+            "-reconnect",
+            "1",
+            "-reconnect_streamed",
+            "1",
+            "-reconnect_delay_max",
+            "5",
+        ];
+        if (cfg.maxSeconds > 0) {
+            // Prefer input -t so ffmpeg stops reading the source early (static files are huge).
+            inputOptions.push("-t", String(cfg.maxSeconds));
+        }
+
+        const command = ffmpeg(inputUrl)
+            .inputOptions(inputOptions)
             .outputOptions([
                 "-c:v",
                 "libx264",
@@ -37,6 +53,8 @@ export async function bakeHlsFromUrl(
                 "veryfast",
                 "-profile:v",
                 "main",
+                "-pix_fmt",
+                "yuv420p",
                 "-c:a",
                 "aac",
                 "-ac",
@@ -52,10 +70,6 @@ export async function bakeHlsFromUrl(
                 "-hls_segment_filename",
                 segmentPattern,
             ]);
-
-        if (cfg.maxSeconds > 0) {
-            command = command.duration(cfg.maxSeconds);
-        }
 
         command
             .output(playlistPath)

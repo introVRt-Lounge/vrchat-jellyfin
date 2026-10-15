@@ -143,6 +143,17 @@ export default class JellyfinClient {
         return url.toString();
     }
 
+    /**
+     * Direct file stream for ffmpeg bake (no Jellyfin live-transcode).
+     * `static=true` avoids SubtitleMethod defaults that break HTTP input to ffmpeg.
+     */
+    public buildStaticMediaUrl(itemId: string): string {
+        const url = new URL(`${this.serverUrl}/Videos/${itemId}/stream`);
+        url.searchParams.set("api_key", this.apiKey);
+        url.searchParams.set("static", "true");
+        return url.toString();
+    }
+
     public async getVideoStream(itemId: string, options?: ProxyOptions) {
         const streamUrl = this.buildVideoStreamUrl(itemId, options);
         console.log(`Requesting video stream from ${streamUrl}`);

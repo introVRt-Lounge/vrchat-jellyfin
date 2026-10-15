@@ -196,19 +196,16 @@ app.post("/i/:id/fanout", requireJellyfin, async (req, res) => {
     }
 
     const itemId = req.params.id;
-    const { subtitleStreamIndex } = req.body || {};
-    const proxyOptions: ProxyOptions = {};
-    if (subtitleStreamIndex != null) {
-        proxyOptions.subtitleStreamIndex = subtitleStreamIndex;
-        proxyOptions.subtitleMethod = SubtitleMethod.Encode;
-    }
+    // Subtitles: burn-in on static source needs a later pass; spike uses video+audio only.
 
     // Long bake — keep the socket alive for Traefik/browser.
     req.setTimeout(0);
     res.setTimeout(0);
 
     try {
-        const inputUrl = client.buildVideoStreamUrl(itemId, proxyOptions);
+        // static=true: original file bytes. Live-transcode URLs + SubtitleMethod defaults
+        // make ffmpeg fail with Input/output error against Jellyfin.
+        const inputUrl = client.buildStaticMediaUrl(itemId);
         console.log(
             `OCI HLS fan-out bake start item=${itemId} maxSeconds=${ociCfg.maxSeconds}`,
         );
