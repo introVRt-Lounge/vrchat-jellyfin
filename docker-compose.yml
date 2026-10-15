@@ -18,6 +18,8 @@ services:
       - JELLYFIN_HOST=${JELLYFIN_HOST:?}
       - JELLYFIN_USERNAME=${JELLYFIN_USERNAME:?}
       - JELLYFIN_PASSWORD=${JELLYFIN_PASSWORD:?}
+      # Unique per instance if you run more than one against the same Jellyfin user
+      - JELLYFIN_DEVICE_ID=${JELLYFIN_DEVICE_ID:-jellyfin-vrchat}
       
       # Optional audio/video quality settings with defaults
       - AUDIO_BITRATE=${AUDIO_BITRATE:-192000}

@@ -14,6 +14,7 @@ services:
       - JELLYFIN_HOST=${JELLYFIN_HOST}
       - JELLYFIN_USERNAME=${JELLYFIN_USERNAME}
       - JELLYFIN_PASSWORD=${JELLYFIN_PASSWORD}
+      - JELLYFIN_DEVICE_ID=${JELLYFIN_DEVICE_ID:-jellyfin-vrchat-local}
 
       # Allow self-signed SSL certificates for development
       - NODE_TLS_REJECT_UNAUTHORIZED=0

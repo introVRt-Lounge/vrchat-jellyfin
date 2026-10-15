@@ -14,6 +14,7 @@ import {
     ImageUrlOptions,
 } from "./imageUrl";
 import { mapItemToListItem, mapSearchHintToListItem } from "./listItems";
+import { resolveJellyfinDeviceId } from "./deviceId";
 
 const encodingSettings: Record<string, string> = require(resolve("./encodingSettings.js")).encodingSettings;
 
@@ -29,6 +30,8 @@ export default class JellyfinClient {
         // Ensure the serverUrl does not end with a slash
         this.serverUrl = serverUrl.replace(/\/+$/, "");
 
+        const deviceId = resolveJellyfinDeviceId();
+
         this._sdk = new Jellyfin({
             clientInfo: {
                 name: JellyfinClient.APP_NAME,
@@ -36,7 +39,7 @@ export default class JellyfinClient {
             },
             deviceInfo: {
                 name: `${JellyfinClient.APP_NAME} ${process.env.npm_package_version || "0.0.0"} | ${process.platform} | ${process.arch}`,
-                id: "jellyfin-vrchat",
+                id: deviceId,
             },
         });
 
