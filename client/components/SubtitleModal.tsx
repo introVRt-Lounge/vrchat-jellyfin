@@ -271,12 +271,7 @@ function SubtitleModal({
                     <Radio value="friends">
                       Just you and a friend (1–2)
                     </Radio>
-                    <Radio value="group">
-                      A group (3+)
-                      {fanoutMaxSeconds > 0
-                        ? ` — bakes first ${fanoutMaxSeconds}s`
-                        : ' — full title bake'}
-                    </Radio>
+                    <Radio value="group">A group (3+)</Radio>
                   </RadioGroup>
 
                   <details className="text-xs text-gray-400">
@@ -294,6 +289,14 @@ function SubtitleModal({
                       <AudienceFlowDiagram />
                     </div>
                   </details>
+
+                  {/* Clip cap is a spike/dev safety rail (OCI_HLS_MAX_SECONDS), not prod UX. */}
+                  {fanoutMaxSeconds > 0 && (
+                    <p className="text-xs text-amber-400/80">
+                      Dev only: group bake is capped at the first{' '}
+                      {fanoutMaxSeconds} seconds of the title.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -326,8 +329,9 @@ function SubtitleModal({
 
               {useFanout && (
                 <p className="text-xs text-amber-400/90">
-                  Bake + upload can take a few minutes. Group link points at
-                  objectstorage (~1 day). Not the proxy path.
+                  Preparing the group link can take a few minutes (encode +
+                  upload). Link lasts about a day on Object Storage - not the
+                  proxy path.
                 </p>
               )}
 
