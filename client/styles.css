@@ -5,55 +5,314 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * B-lite Lounge skin (Wardrobe-flavored tokens).
+ * IntroVRt Lounge cyberpunk skin.
  * Applied when html.theme-lounge is set from GET /config (UI_THEME=lounge).
  */
 html.theme-lounge {
-  --lounge-bg-0: #0b0b10;
-  --lounge-bg-1: #14141c;
-  --lounge-panel: rgba(26, 26, 36, 0.85);
-  --lounge-border: rgba(0, 229, 255, 0.35);
-  --lounge-accent: #00e5ff;
-  --lounge-neon: #00ff9f;
-  --lounge-pink: #ff4081;
-  --lounge-text: #f5f5f7;
-  --lounge-muted: #9aa0b5;
-  --lounge-glow: 0 0 18px rgba(0, 255, 159, 0.45);
+  --lounge-bg-0: #05060a;
+  --lounge-bg-1: #0c0e16;
+  --lounge-bg-2: #12162a;
+  --lounge-panel: rgba(12, 16, 28, 0.82);
+  --lounge-panel-solid: #0e1220;
+  --lounge-border: rgba(0, 245, 255, 0.42);
+  --lounge-border-hot: rgba(255, 45, 149, 0.55);
+  --lounge-accent: #00f5ff;
+  --lounge-neon: #39ff14;
+  --lounge-pink: #ff2d95;
+  --lounge-violet: #b967ff;
+  --lounge-text: #e8f0ff;
+  --lounge-muted: #8b95b0;
+  --lounge-danger: #ff4d6d;
+  --lounge-glow: 0 0 12px rgba(0, 245, 255, 0.55), 0 0 28px rgba(57, 255, 20, 0.22);
+  --lounge-glow-pink: 0 0 14px rgba(255, 45, 149, 0.45);
+  --lounge-font-display: "Orbitron", "Segoe UI", sans-serif;
+  --lounge-font-mono: "Share Tech Mono", ui-monospace, monospace;
+  --lounge-font-body: "Rajdhani", "Segoe UI", sans-serif;
+}
+
+html.theme-lounge,
+html.theme-lounge body {
+  font-family: var(--lounge-font-body);
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 html.theme-lounge body,
 html.theme-lounge .app-shell {
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 229, 255, 0.12), transparent),
-    linear-gradient(180deg, var(--lounge-bg-0), var(--lounge-bg-1));
+  position: relative;
+  min-height: 100vh;
   color: var(--lounge-text);
+  background-color: var(--lounge-bg-0);
+  background-image:
+    radial-gradient(ellipse 90% 55% at 15% -10%, rgba(0, 245, 255, 0.16), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 90% 0%, rgba(255, 45, 149, 0.12), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 50% 110%, rgba(57, 255, 20, 0.08), transparent 55%),
+    linear-gradient(180deg, var(--lounge-bg-0) 0%, var(--lounge-bg-1) 45%, var(--lounge-bg-2) 100%);
+  background-attachment: fixed;
+}
+
+/* Perspective grid floor */
+html.theme-lounge .app-shell::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgba(0, 245, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 245, 255, 0.07) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.55) 40%, rgba(0, 0, 0, 0.85) 100%);
+  animation: lounge-grid-drift 28s linear infinite;
+}
+
+/* Scanlines + vignette */
+html.theme-lounge .app-shell::after {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.12) 2px,
+      rgba(0, 0, 0, 0.12) 4px
+    ),
+    radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.55) 100%);
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+}
+
+html.theme-lounge .app-shell > * {
+  position: relative;
+  z-index: 2;
+}
+
+@keyframes lounge-grid-drift {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 0 48px, 48px 0;
+  }
+}
+
+@keyframes lounge-title-pulse {
+  0%,
+  100% {
+    text-shadow: var(--lounge-glow);
+    filter: brightness(1);
+  }
+  50% {
+    text-shadow:
+      0 0 10px rgba(0, 245, 255, 0.8),
+      0 0 28px rgba(255, 45, 149, 0.35),
+      0 0 48px rgba(57, 255, 20, 0.2);
+    filter: brightness(1.08);
+  }
+}
+
+@keyframes lounge-border-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(0, 245, 255, 0.2),
+      0 0 18px rgba(0, 245, 255, 0.12),
+      0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(255, 45, 149, 0.35),
+      0 0 22px rgba(0, 245, 255, 0.22),
+      0 12px 40px rgba(0, 0, 0, 0.45);
+  }
 }
 
 html.theme-lounge .lounge-title,
 html.theme-lounge h1 {
-  letter-spacing: 0.04em;
+  font-family: var(--lounge-font-display);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lounge-accent);
   text-shadow: var(--lounge-glow);
+  animation: lounge-title-pulse 4.5s ease-in-out infinite;
+}
+
+html.theme-lounge .lounge-eyebrow {
+  font-family: var(--lounge-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--lounge-pink);
+  text-shadow: var(--lounge-glow-pink);
+}
+
+html.theme-lounge .lounge-sub {
+  font-family: var(--lounge-font-body);
+  font-size: 1.05rem;
+  color: var(--lounge-muted);
 }
 
 html.theme-lounge .lounge-panel,
 html.theme-lounge [data-slot="base"].bg-gray-800,
-html.theme-lounge .bg-gray-800 {
+html.theme-lounge .bg-gray-800,
+html.theme-lounge .bg-gray-800\/40 {
   background: var(--lounge-panel) !important;
-  border-color: var(--lounge-border);
-  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.12), 0 8px 32px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
+  border: 1px solid var(--lounge-border) !important;
+  border-radius: 2px !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 245, 255, 0.12),
+    0 0 18px rgba(0, 245, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px) saturate(1.2);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+html.theme-lounge [data-hover="true"].bg-gray-800,
+html.theme-lounge .bg-gray-800[data-pressed="true"],
+html.theme-lounge .bg-gray-800:hover {
+  border-color: var(--lounge-border-hot) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 45, 149, 0.35),
+    0 0 28px rgba(0, 245, 255, 0.25),
+    0 0 40px rgba(255, 45, 149, 0.12);
+  transform: translateY(-2px);
 }
 
 html.theme-lounge .lounge-link,
 html.theme-lounge a.text-indigo-300 {
   color: var(--lounge-accent) !important;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
 html.theme-lounge .lounge-link:hover,
 html.theme-lounge a.text-indigo-300:hover {
   color: var(--lounge-neon) !important;
+  text-shadow: 0 0 10px rgba(57, 255, 20, 0.55);
 }
 
-html.theme-lounge .text-gray-400 {
+html.theme-lounge .text-gray-300 {
+  color: #c5cee0 !important;
+}
+
+html.theme-lounge .text-gray-400,
+html.theme-lounge .text-gray-500 {
   color: var(--lounge-muted) !important;
+}
+
+html.theme-lounge .text-red-400 {
+  color: var(--lounge-danger) !important;
+  text-shadow: 0 0 10px rgba(255, 77, 109, 0.35);
+}
+
+html.theme-lounge .bg-gray-700,
+html.theme-lounge .bg-gray-900 {
+  background-color: var(--lounge-panel-solid) !important;
+}
+
+/* Primary / accent controls */
+html.theme-lounge [data-slot="base"][data-color="primary"],
+html.theme-lounge button[data-color="primary"] {
+  --heroui-primary: 185 100% 50%;
+  background: linear-gradient(
+    120deg,
+    rgba(0, 245, 255, 0.95),
+    rgba(57, 255, 20, 0.85)
+  ) !important;
+  color: #041016 !important;
+  font-family: var(--lounge-font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 2px !important;
+  box-shadow: 0 0 16px rgba(0, 245, 255, 0.35);
+}
+
+html.theme-lounge [data-slot="base"][data-color="primary"]:hover,
+html.theme-lounge button[data-color="primary"]:hover {
+  box-shadow:
+    0 0 20px rgba(0, 245, 255, 0.55),
+    0 0 32px rgba(57, 255, 20, 0.25);
+}
+
+/* Modals / overlays */
+html.theme-lounge [data-slot="wrapper"] [data-slot="base"],
+html.theme-lounge [role="dialog"] {
+  background: var(--lounge-panel) !important;
+  border: 1px solid var(--lounge-border) !important;
+  border-radius: 2px !important;
+  animation: lounge-border-breathe 5s ease-in-out infinite;
+  backdrop-filter: blur(16px);
+}
+
+html.theme-lounge input,
+html.theme-lounge [data-slot="input-wrapper"] {
+  font-family: var(--lounge-font-mono) !important;
+  border-radius: 2px !important;
+}
+
+html.theme-lounge [data-slot="label"],
+html.theme-lounge [data-slot="description"] {
+  font-family: var(--lounge-font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.7rem !important;
+  color: var(--lounge-accent) !important;
+}
+
+html.theme-lounge [data-slot="description"] {
+  color: var(--lounge-muted) !important;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 0.8rem !important;
+  font-family: var(--lounge-font-body) !important;
+}
+
+/* Radio / checkbox accents */
+html.theme-lounge [data-selected="true"] [data-slot="control"],
+html.theme-lounge [data-selected="true"] [data-slot="wrapper"] {
+  border-color: var(--lounge-neon) !important;
+  background: rgba(57, 255, 20, 0.15) !important;
+  box-shadow: 0 0 10px rgba(57, 255, 20, 0.35);
+}
+
+/* Success / mint result */
+html.theme-lounge .border-green-600 {
+  border-color: rgba(57, 255, 20, 0.55) !important;
+  box-shadow: 0 0 20px rgba(57, 255, 20, 0.2);
+}
+
+html.theme-lounge .text-green-400 {
+  color: var(--lounge-neon) !important;
+  text-shadow: 0 0 12px rgba(57, 255, 20, 0.45);
+}
+
+html.theme-lounge .bg-amber-400\/90,
+html.theme-lounge .text-amber-400\/90 {
+  color: #ffc857 !important;
+}
+
+/* Artwork frames */
+html.theme-lounge .aspect-video,
+html.theme-lounge .aspect-\[2\/3\] {
+  border: 1px solid rgba(0, 245, 255, 0.25);
+  box-shadow: inset 0 0 24px rgba(0, 245, 255, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-lounge .app-shell::before,
+  html.theme-lounge .lounge-title,
+  html.theme-lounge h1,
+  html.theme-lounge [role="dialog"] {
+    animation: none !important;
+  }
 }
