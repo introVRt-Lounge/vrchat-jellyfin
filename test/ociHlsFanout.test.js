@@ -6,6 +6,7 @@ const {
     absolutizeHlsPlaylist,
     publicObjectUrl,
 } = require("../dist/oci/playlist");
+const { rewriteUrlHostToIp } = require("../dist/oci/hlsBake");
 const { buildUiConfig } = require("../dist/webserver/uiConfig");
 
 const baseCreds = {
@@ -38,6 +39,13 @@ describe("OCI HLS fan-out config gate", () => {
         assert.match(cfg.endpoint, /compat\.objectstorage/);
         assert.equal(buildUiConfig(env).ociHlsFanoutEnabled, true);
         assert.equal(buildUiConfig(env).ociHlsMaxSeconds, 90);
+    });
+});
+
+describe("ffmpeg Docker DNS rewrite", () => {
+    it("leaves IP hosts alone", async () => {
+        const url = "http://172.27.0.15:8096/Videos/x/stream?static=true";
+        assert.equal(await rewriteUrlHostToIp(url), url);
     });
 });
 

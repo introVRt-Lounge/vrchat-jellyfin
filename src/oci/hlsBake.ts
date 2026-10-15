@@ -1,3 +1,4 @@
+import { lookup } from "dns/promises";
 import { mkdir, readdir, rm, writeFile } from "fs/promises";
 import path from "path";
 import ffmpeg from "fluent-ffmpeg";
@@ -15,6 +16,20 @@ export interface BakeResult {
 }
 
 /**
+ * johnvansickle ffmpeg-static cannot resolve Docker Compose DNS names
+ * ("Failed to resolve hostname jellyfin: System error"). Rewrite host → IP.
+ */
+export async function rewriteUrlHostToIp(inputUrl: string): Promise<string> {
+    const u = new URL(inputUrl);
+    if (!u.hostname || /^\d{1,3}(\.\d{1,3}){3}$/.test(u.hostname)) {
+        return inputUrl;
+    }
+    const { address } = await lookup(u.hostname);
+    u.hostname = address;
+    return u.toString();
+}
+
+/**
  * Transcode an HTTP(S) input (Jellyfin stream URL) to VOD HLS in a temp dir.
  */
 export async function bakeHlsFromUrl(
@@ -26,6 +41,7 @@ export async function bakeHlsFromUrl(
     await mkdir(workDir, { recursive: true });
     const playlistPath = path.join(workDir, "index.m3u8");
     const segmentPattern = path.join(workDir, "seg%03d.ts");
+    const resolvedInput = await rewriteUrlHostToIp(inputUrl);
 
     await new Promise<void>((resolve, reject) => {
         const inputOptions = [
@@ -44,7 +60,7 @@ export async function bakeHlsFromUrl(
             inputOptions.push("-t", String(cfg.maxSeconds));
         }
 
-        const command = ffmpeg(inputUrl)
+        const command = ffmpeg(resolvedInput)
             .inputOptions(inputOptions)
             .outputOptions([
                 "-c:v",
