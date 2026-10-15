@@ -16,12 +16,15 @@ Local ffmpeg-static remains the fallback when mode is unset or credentials incom
 
 `~/.config/vrchat-jellyfin/dffmpeg.env` (mode 0600) - not in git.
 
-## Prod discussion (not enabled)
+## Prod UX (locked framing; publish still off in prod)
 
-User-facing options to discuss before prod:
+Mint asks: **Just you and a friend (1–2), or a group (3+)?**
 
-1. **Explicit mint choice** - "Watch here" (proxy `/v/`) vs "Share with friends" (OCI fan-out, slower first paint)
-2. **Auto fan-out** when mint TTL > N or party size hint
-3. **Background bake** - return proxy URL immediately, swap to OCI playlist when ready
+| Choice | Path |
+| --- | --- |
+| You + friend | Proxy `/v/…` + TTL picker |
+| Group (3+) | OCI HLS fan-out (~1 day) |
 
-Prod must keep `OCI_HLS_PUBLISH` off until that UX is decided.
+Collapsed "why?" + ASCII flow diagram in the mint modal. See `2026-10-15-fanout-decisions.md`.
+
+Prod must keep `OCI_HLS_PUBLISH` off until worker-side upload, subtitles, vanity, and load/quota land.
