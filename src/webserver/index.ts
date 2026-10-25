@@ -13,8 +13,17 @@ import {
     allowsExtendedTtl,
     resolveTtlMs,
 } from "../jellyfin/proxy/streamTtl";
+import path from "path";
 import { buildOciHlsPublishConfig } from "../oci/config";
 import { publishItemHlsFanout } from "../oci/publish";
+import {
+    configureFanoutJobs,
+    createFanoutJob,
+    fanoutJobPublicView,
+    getFanoutJob,
+    loadFanoutJobs,
+    startFanoutJob,
+} from "../oci/fanoutJobs";
 // SPA deep-link routes below mirror client/App.tsx.
 
 const app = express();
@@ -195,9 +204,10 @@ app.post("/i/:id", requireJellyfin, async (req, res) => {
 });
 
 /**
- * Dev/spike fan-out: bake HLS from Jellyfin and upload to OCI Object Storage.
- * Gated by OCI_HLS_PUBLISH + credentials. Returns a public m3u8 URL (not /v/:id).
+ * OCI HLS fan-out: accept quickly, bake+publish in the background.
+ * Cloudflare ~100s origin timeout cannot wait for a full-feature encode.
  * Auth lifecycle: object lifetime is the bucket lifecycle (currently ~1 day); no refresh.
+ * Poll GET /i/fanout/:jobId for status + playlistUrl.
  */
 app.post("/i/:id/fanout", requireJellyfin, async (req, res) => {
     const ociCfg = buildOciHlsPublishConfig();
@@ -214,33 +224,22 @@ app.post("/i/:id/fanout", requireJellyfin, async (req, res) => {
             : undefined;
     // Subtitles: burn-in on static source needs a later pass; spike uses video+audio only.
 
-    // Long bake — keep the socket alive for Traefik/browser.
-    req.setTimeout(0);
-    res.setTimeout(0);
+    const job = createFanoutJob({ itemId, mediaSourceId });
+    console.log(
+        `OCI HLS fan-out accepted job=${job.jobId} item=${itemId} mediaSourceId=${mediaSourceId || "default"} maxSeconds=${ociCfg.maxSeconds} bakeMode=${ociCfg.bakeMode}`,
+    );
+    startFanoutJob(job.jobId);
+    res.status(202).json(fanoutJobPublicView(job));
+});
 
-    try {
-        // static=true: original file bytes. Live-transcode URLs + SubtitleMethod defaults
-        // make ffmpeg fail with Input/output error against Jellyfin.
-        const inputUrl = client.buildStaticMediaUrl(itemId, mediaSourceId);
-        console.log(
-            `OCI HLS fan-out bake start item=${itemId} mediaSourceId=${mediaSourceId || "default"} maxSeconds=${ociCfg.maxSeconds} bakeMode=${ociCfg.bakeMode} encoder=${ociCfg.videoEncoder}`,
-        );
-        const result = await publishItemHlsFanout({
-            inputUrl,
-            itemId,
-            cfg: ociCfg,
-        });
-        console.log(`OCI HLS fan-out ready ${result.playlistUrl}`);
-        res.json(result);
-    } catch (err) {
-        console.error("OCI HLS fan-out failed:", err);
-        res.status(500).json({
-            error:
-                err instanceof Error
-                    ? err.message
-                    : "Failed to publish HLS fan-out",
-        });
+/** Poll fan-out bake/publish status (same Access gate as mint UI). */
+app.get("/i/fanout/:jobId", requireJellyfin, (req, res) => {
+    const job = getFanoutJob(req.params.jobId);
+    if (!job) {
+        res.status(404).json({ error: "Fan-out job not found" });
+        return;
     }
+    res.json(fanoutJobPublicView(job));
 });
 
 // Proxy Jellyfin artwork. Browser only ever sees /img/... — api_key stays server-side.
@@ -368,6 +367,28 @@ app.get("/tvshow/:showId", sendSpaShell);
 app.get("/season/:seasonId", sendSpaShell);
 
 ProxyManager.init();
+
+const fanoutStorePath = path.join(
+    path.dirname(process.env.PROXY_STORE_PATH || "./data/proxies.json"),
+    "fanout-jobs.json",
+);
+configureFanoutJobs({
+    storePath: fanoutStorePath,
+    runner: async (job) => {
+        const ociCfg = buildOciHlsPublishConfig();
+        const inputUrl = client.buildStaticMediaUrl(job.itemId, job.mediaSourceId);
+        console.log(
+            `OCI HLS fan-out bake start job=${job.jobId} item=${job.itemId} mediaSourceId=${job.mediaSourceId || "default"} maxSeconds=${ociCfg.maxSeconds} bakeMode=${ociCfg.bakeMode} encoder=${ociCfg.videoEncoder}`,
+        );
+        return publishItemHlsFanout({
+            inputUrl,
+            itemId: job.itemId,
+            cfg: ociCfg,
+            jobId: job.jobId,
+        });
+    },
+});
+void loadFanoutJobs();
 
 console.log("Starting VRChat Jellyfin server...");
 

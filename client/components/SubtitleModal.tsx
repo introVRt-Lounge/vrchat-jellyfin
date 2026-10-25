@@ -217,9 +217,38 @@ function SubtitleModal({
           }),
         });
 
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.error || `Fan-out publish failed: ${response.status}`);
+        const accepted = await response.json().catch(() => ({}));
+        if (!response.ok && response.status !== 202) {
+          throw new Error(accepted.error || `Fan-out publish failed: ${response.status}`);
+        }
+
+        // Async: 202 + poll. Legacy sync 200 with playlistUrl still accepted.
+        let data = accepted as Record<string, unknown>;
+        if (response.status === 202 || (!data.playlistUrl && data.jobId)) {
+          const statusUrl =
+            typeof data.statusUrl === 'string'
+              ? data.statusUrl
+              : `/i/fanout/${String(data.jobId || '')}`;
+          const deadline = Date.now() + 6 * 60 * 60 * 1000;
+          while (Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, 2000));
+            const poll = await fetch(statusUrl);
+            data = (await poll.json().catch(() => ({}))) as Record<string, unknown>;
+            if (!poll.ok) {
+              throw new Error(
+                (typeof data.error === 'string' && data.error) ||
+                  `Fan-out status failed: ${poll.status}`,
+              );
+            }
+            if (data.status === 'failed') {
+              throw new Error(
+                (typeof data.error === 'string' && data.error) || 'Fan-out bake failed',
+              );
+            }
+            if (data.status === 'ready' && typeof data.playlistUrl === 'string') {
+              break;
+            }
+          }
         }
 
         const url = typeof data.playlistUrl === 'string' ? data.playlistUrl : '';
