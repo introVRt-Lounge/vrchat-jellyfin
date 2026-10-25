@@ -92,14 +92,26 @@ describe("ffmpeg Docker DNS rewrite", () => {
 });
 
 describe("OCI HLS playlist absolute URLs", () => {
-    it("encodes object key as a single /o/ path segment", () => {
+    it("uses real slash path segments after /o/ (not %2F)", () => {
         const url = publicObjectUrl(
             "https://objectstorage.us-ashburn-1.oraclecloud.com/n/ns/b/owncast/o",
             "vrchat-fanout/item/job/index.m3u8",
         );
         assert.equal(
             url,
-            "https://objectstorage.us-ashburn-1.oraclecloud.com/n/ns/b/owncast/o/vrchat-fanout%2Fitem%2Fjob%2Findex.m3u8",
+            "https://objectstorage.us-ashburn-1.oraclecloud.com/n/ns/b/owncast/o/vrchat-fanout/item/job/index.m3u8",
+        );
+        assert.ok(!/%2F/i.test(url));
+    });
+
+    it("encodes special characters within a single path segment only", () => {
+        const url = publicObjectUrl(
+            "https://objectstorage.us-ashburn-1.oraclecloud.com/n/ns/b/owncast/o",
+            "vrchat-fanout/has space/index.m3u8",
+        );
+        assert.equal(
+            url,
+            "https://objectstorage.us-ashburn-1.oraclecloud.com/n/ns/b/owncast/o/vrchat-fanout/has%20space/index.m3u8",
         );
     });
 
@@ -121,10 +133,11 @@ describe("OCI HLS playlist absolute URLs", () => {
         );
         assert.match(
             out,
-            /objectstorage\.us-ashburn-1\.oraclecloud\.com\/n\/ns\/b\/owncast\/o\/vrchat-fanout%2Fitem%2Fjob%2Fseg000\.ts/,
+            /objectstorage\.us-ashburn-1\.oraclecloud\.com\/n\/ns\/b\/owncast\/o\/vrchat-fanout\/item\/job\/seg000\.ts/,
         );
         assert.match(out, /seg001\.ts/);
         assert.ok(out.includes("#EXTM3U"));
         assert.ok(!out.split("\n").some((l) => l.trim() === "seg000.ts"));
+        assert.ok(!/%2F/i.test(out));
     });
 });

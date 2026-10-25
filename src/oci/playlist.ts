@@ -1,13 +1,18 @@
 /**
- * OCI ObjectRead URLs use /o/<url-encoded-key> where the whole key (including
- * slashes) is one path segment. Relative segment paths in an m3u8 therefore
- * break - rewrite to absolute public object URLs.
+ * OCI ObjectRead public URLs: path after `/o/` must use real `/` separators.
+ * Encoding the whole key (`%2F`) breaks VLC and is painful for humans.
+ * Encode each path segment individually so spaces/specials stay safe.
  */
 
-/** Public GET URL for an object key (matches spike / Owncast ObjectRead shape). */
+/** Public GET URL for an object key (slash-separated path after /o/). */
 export function publicObjectUrl(publicBase: string, objectKey: string): string {
     const base = publicBase.replace(/\/+$/, "");
-    return `${base}/${encodeURIComponent(objectKey)}`;
+    const parts = objectKey
+        .replace(/^\/+|\/+$/g, "")
+        .split("/")
+        .filter(Boolean)
+        .map((p) => encodeURIComponent(p));
+    return `${base}/${parts.join("/")}`;
 }
 
 /**
