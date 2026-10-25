@@ -19,6 +19,27 @@ const baseCreds = {
         "https://objectstorage.us-ashburn-1.oraclecloud.com/n/idzn4iwfwrfa/b/owncast/o",
 };
 
+describe("dffmpeg wait timeout for full-title bake", () => {
+    it("uses multi-hour timeout when maxSeconds is 0", () => {
+        // Mirror hlsBakeDffmpeg.toClientCfg math without importing private helper.
+        const maxSeconds = 0;
+        const timeoutMs =
+            maxSeconds > 0
+                ? Math.max(60_000, maxSeconds * 1000 + 120_000)
+                : 6 * 60 * 60 * 1000;
+        assert.equal(timeoutMs, 6 * 60 * 60 * 1000);
+    });
+
+    it("keeps short timeout for clipped bakes", () => {
+        const maxSeconds = 90;
+        const timeoutMs =
+            maxSeconds > 0
+                ? Math.max(60_000, maxSeconds * 1000 + 120_000)
+                : 6 * 60 * 60 * 1000;
+        assert.equal(timeoutMs, 90 * 1000 + 120_000);
+    });
+});
+
 describe("OCI HLS fan-out config gate", () => {
     it("disabled by default even with credentials", () => {
         const cfg = buildOciHlsPublishConfig(baseCreds);

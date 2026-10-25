@@ -13,13 +13,18 @@ function toClientCfg(cfg: OciHlsPublishConfig): DffmpegClientConfig {
     if (!cfg.dffmpeg.enabled) {
         throw new Error("dffmpeg bake requested but client config is incomplete");
     }
+    // maxSeconds=0 means full title — allow multi-hour encodes (CF must not wait).
+    const timeoutMs =
+        cfg.maxSeconds > 0
+            ? Math.max(60_000, cfg.maxSeconds * 1000 + 120_000)
+            : 6 * 60 * 60 * 1000;
     return {
         coordinatorUrl: cfg.dffmpeg.coordinatorUrl,
         clientId: cfg.dffmpeg.clientId,
         hmacKeyB64: cfg.dffmpeg.hmacKeyB64,
         pathVar: cfg.dffmpeg.pathVar,
         localDir: cfg.dffmpeg.localDir,
-        timeoutMs: Math.max(60_000, (cfg.maxSeconds || 120) * 1000 + 120_000),
+        timeoutMs,
     };
 }
 
