@@ -20,12 +20,31 @@ interface Subtitle {
   language: string;
 }
 
+interface MediaSourceOption {
+  id: string | null;
+  label: string;
+  sizeBytes: number | null;
+  container: string | null;
+  subtitles: Subtitle[];
+}
+
 interface SubtitleModalProps {
   isOpen: boolean;
   onClose: () => void;
   itemId: string;
   itemName: string;
   subtitles: Subtitle[];
+}
+
+function formatSize(bytes: number | null): string | null {
+  if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return null;
+  const gib = bytes / (1024 * 1024 * 1024);
+  if (gib >= 1) return `${gib.toFixed(1)} GiB`;
+  return `${Math.round(bytes / (1024 * 1024))} MiB`;
+}
+
+function sourceKey(source: MediaSourceOption, index: number): string {
+  return source.id || `default-${index}`;
 }
 
 /** 1–2 people → proxy; 3+ → OCI HLS fan-out. */
@@ -72,9 +91,15 @@ function SubtitleModal({
   const [fanoutMaxSeconds, setFanoutMaxSeconds] = useState(120);
   const [audience, setAudience] = useState<AudienceSize>('friends');
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
+  const [mediaSources, setMediaSources] = useState<MediaSourceOption[]>([]);
+  const [selectedSourceKey, setSelectedSourceKey] = useState<string>('');
   const [loadingSubtitles, setLoadingSubtitles] = useState(false);
 
   const useFanout = fanoutEnabled && audience === 'group';
+  const selectedSource =
+    mediaSources.find((s, i) => sourceKey(s, i) === selectedSourceKey) ||
+    mediaSources[0] ||
+    null;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -85,6 +110,8 @@ function SubtitleModal({
     setCopied(false);
     setAudience('friends');
     setSubtitles(subtitlesProp.length ? subtitlesProp : []);
+    setMediaSources([]);
+    setSelectedSourceKey('');
     let cancelled = false;
     fetchUiConfig().then((cfg) => {
       if (cancelled) return;
@@ -103,17 +130,38 @@ function SubtitleModal({
       })
       .then((data) => {
         if (cancelled) return;
-        const rows = Array.isArray(data?.subtitles) ? data.subtitles : [];
-        setSubtitles(
-          rows.map((s: Subtitle) => ({
-            index: s.index,
-            language: s.language || 'Unknown',
-          })),
+        const sourcesRaw = Array.isArray(data?.mediaSources) ? data.mediaSources : [];
+        const sources: MediaSourceOption[] = sourcesRaw.map(
+          (s: MediaSourceOption, i: number) => ({
+            id: s?.id ?? null,
+            label: s?.label || `Version ${i + 1}`,
+            sizeBytes: typeof s?.sizeBytes === 'number' ? s.sizeBytes : null,
+            container: s?.container ?? null,
+            subtitles: Array.isArray(s?.subtitles)
+              ? s.subtitles.map((t: Subtitle) => ({
+                  index: t.index,
+                  language: t.language || 'Unknown',
+                }))
+              : [],
+          }),
         );
+        setMediaSources(sources);
+        if (sources.length > 0) {
+          setSelectedSourceKey(sourceKey(sources[0], 0));
+          setSubtitles(sources[0].subtitles);
+        } else {
+          const rows = Array.isArray(data?.subtitles) ? data.subtitles : [];
+          setSubtitles(
+            rows.map((s: Subtitle) => ({
+              index: s.index,
+              language: s.language || 'Unknown',
+            })),
+          );
+        }
       })
       .catch((err) => {
         if (cancelled) return;
-        console.error('Error loading subtitles:', err);
+        console.error('Error loading item details:', err);
         // Keep any prop fallback; still allow "No Subtitles" mint.
       })
       .finally(() => {
@@ -124,6 +172,13 @@ function SubtitleModal({
     };
     // Intentionally omit subtitlesProp — parents pass a fresh [] each render.
   }, [isOpen, itemId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!selectedSource) return;
+    setSubtitles(selectedSource.subtitles);
+    setSelectedSubtitleIndex(null);
+    setGeneratedUrl('');
+  }, [selectedSourceKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getLanguageFlag = (language: string) => {
     const flagMap: { [key: string]: string } = {
@@ -147,6 +202,8 @@ function SubtitleModal({
     setLoading(true);
     setError(null);
 
+    const mediaSourceId = selectedSource?.id || undefined;
+
     try {
       if (useFanout) {
         const response = await fetch(`/i/${itemId}/fanout`, {
@@ -156,6 +213,7 @@ function SubtitleModal({
           },
           body: JSON.stringify({
             subtitleStreamIndex: subtitleIndex,
+            mediaSourceId,
           }),
         });
 
@@ -189,6 +247,7 @@ function SubtitleModal({
         body: JSON.stringify({
           subtitleStreamIndex: subtitleIndex,
           ttlHours,
+          mediaSourceId,
         }),
       });
 
@@ -256,15 +315,43 @@ function SubtitleModal({
           <div className="mb-4 shrink-0">
             <h3 className="font-semibold mb-2">{itemName}</h3>
             <p className="text-sm text-gray-400">
-              Choose subtitle track or select &quot;No Subtitles&quot;
+              {mediaSources.length > 1
+                ? 'Pick the file/version, then a subtitle track (or none).'
+                : 'Choose subtitle track or select "No Subtitles"'}
             </p>
             {loadingSubtitles && (
-              <p className="text-xs text-gray-500 mt-1">Loading subtitle tracks…</p>
+              <p className="text-xs text-gray-500 mt-1">Loading versions and subtitle tracks…</p>
             )}
           </div>
 
           {!generatedUrl ? (
             <div className="flex min-h-0 flex-col gap-3">
+              {mediaSources.length > 1 && (
+                <Select
+                  label="Version / file"
+                  aria-label="Media version"
+                  selectedKeys={selectedSourceKey ? new Set([selectedSourceKey]) : new Set()}
+                  onSelectionChange={(keys) => {
+                    const key = Array.from(keys as Set<string>)[0];
+                    if (key) setSelectedSourceKey(key);
+                  }}
+                  size="sm"
+                  className="shrink-0"
+                  description="Multiple files exist for this title (e.g. Remux vs commentary)."
+                >
+                  {mediaSources.map((s, i) => {
+                    const key = sourceKey(s, i);
+                    const size = formatSize(s.sizeBytes);
+                    const text = size ? `${s.label} (${size})` : s.label;
+                    return (
+                      <SelectItem key={key} textValue={text}>
+                        {text}
+                      </SelectItem>
+                    );
+                  })}
+                </Select>
+              )}
+
               {fanoutEnabled && (
                 <div className="shrink-0 space-y-2 rounded-lg border border-gray-700 bg-gray-800/40 p-3">
                   <RadioGroup

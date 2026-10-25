@@ -40,6 +40,8 @@ export interface ProxyOptions {
     audioStreamIndex?: number;
     subtitleStreamIndex?: number;
     subtitleMethod?: SubtitleMethod;
+    /** Jellyfin MediaSource Id when the item has multiple files/versions. */
+    mediaSourceId?: string;
 }
 
 export enum SubtitleMethod {
