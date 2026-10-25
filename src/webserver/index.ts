@@ -157,7 +157,7 @@ app.get("/items/:itemId/details", requireJellyfin, async (req, res) => {
 // operator must re-mint via this endpoint. See docs/capability-urls.md.
 app.post("/i/:id", requireJellyfin, async (req, res) => {
     const itemId = req.params.id;
-    const { subtitleStreamIndex, ttlHours } = req.body || {};
+    const { subtitleStreamIndex, ttlHours, mediaSourceId } = req.body || {};
 
     const jwt =
         req.header("cf-access-jwt-assertion") ||
@@ -182,6 +182,10 @@ app.post("/i/:id", requireJellyfin, async (req, res) => {
         proxyOptions.subtitleMethod = SubtitleMethod.Encode;
     }
 
+    if (typeof mediaSourceId === "string" && mediaSourceId.trim()) {
+        proxyOptions.mediaSourceId = mediaSourceId.trim();
+    }
+
     const proxy = ProxyManager.createProxy(itemId, proxyOptions, wanted.ttlMs);
     res.json({
         id: proxy.id,
@@ -203,6 +207,11 @@ app.post("/i/:id/fanout", requireJellyfin, async (req, res) => {
     }
 
     const itemId = req.params.id;
+    const { mediaSourceId: rawMediaSourceId } = req.body || {};
+    const mediaSourceId =
+        typeof rawMediaSourceId === "string" && rawMediaSourceId.trim()
+            ? rawMediaSourceId.trim()
+            : undefined;
     // Subtitles: burn-in on static source needs a later pass; spike uses video+audio only.
 
     // Long bake — keep the socket alive for Traefik/browser.
@@ -212,9 +221,9 @@ app.post("/i/:id/fanout", requireJellyfin, async (req, res) => {
     try {
         // static=true: original file bytes. Live-transcode URLs + SubtitleMethod defaults
         // make ffmpeg fail with Input/output error against Jellyfin.
-        const inputUrl = client.buildStaticMediaUrl(itemId);
+        const inputUrl = client.buildStaticMediaUrl(itemId, mediaSourceId);
         console.log(
-            `OCI HLS fan-out bake start item=${itemId} maxSeconds=${ociCfg.maxSeconds} bakeMode=${ociCfg.bakeMode} encoder=${ociCfg.videoEncoder}`,
+            `OCI HLS fan-out bake start item=${itemId} mediaSourceId=${mediaSourceId || "default"} maxSeconds=${ociCfg.maxSeconds} bakeMode=${ociCfg.bakeMode} encoder=${ociCfg.videoEncoder}`,
         );
         const result = await publishItemHlsFanout({
             inputUrl,

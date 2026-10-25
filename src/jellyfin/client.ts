@@ -143,6 +143,10 @@ export default class JellyfinClient {
             url.searchParams.set("SubtitleStreamIndex", options.subtitleStreamIndex.toString());
         }
 
+        if (options?.mediaSourceId) {
+            url.searchParams.set("MediaSourceId", options.mediaSourceId);
+        }
+
         return url.toString();
     }
 
@@ -150,10 +154,13 @@ export default class JellyfinClient {
      * Direct file stream for ffmpeg bake (no Jellyfin live-transcode).
      * `static=true` avoids SubtitleMethod defaults that break HTTP input to ffmpeg.
      */
-    public buildStaticMediaUrl(itemId: string): string {
+    public buildStaticMediaUrl(itemId: string, mediaSourceId?: string): string {
         const url = new URL(`${this.serverUrl}/Videos/${itemId}/stream`);
         url.searchParams.set("api_key", this.apiKey);
         url.searchParams.set("static", "true");
+        if (mediaSourceId) {
+            url.searchParams.set("MediaSourceId", mediaSourceId);
+        }
         return url.toString();
     }
 
@@ -179,8 +186,8 @@ export default class JellyfinClient {
             },
         });
         const data = await response.json();
-        const subtitleStreams = data.MediaStreams.filter((stream: any) => stream.Type === "Subtitle");
-        return subtitleStreams;
+        const streams = Array.isArray(data?.MediaStreams) ? data.MediaStreams : [];
+        return streams.filter((stream: { Type?: string }) => stream.Type === "Subtitle");
     }
 
     public getRandomItem(items: NestedItem[]): NestedItem | undefined {
@@ -285,7 +292,11 @@ export default class JellyfinClient {
         const itemResponse = await getItemsApi(this._api).getItems({
             userId: this.userId!,
             ids: [itemId],
-            fields: [ItemFields.PrimaryImageAspectRatio, ItemFields.MediaStreams],
+            fields: [
+                ItemFields.PrimaryImageAspectRatio,
+                ItemFields.MediaStreams,
+                ItemFields.MediaSources,
+            ],
         });
 
         const item = itemResponse.data.Items?.[0];
