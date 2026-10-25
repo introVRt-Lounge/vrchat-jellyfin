@@ -19,6 +19,27 @@ const baseCreds = {
         "https://objectstorage.us-ashburn-1.oraclecloud.com/n/idzn4iwfwrfa/b/owncast/o",
 };
 
+describe("progressive fan-out ffmpeg args", () => {
+    it("uses event playlist so segments can publish before ENDLIST", () => {
+        const {
+            buildProgressiveFfmpegArgs,
+        } = require("../dist/oci/progressivePublish");
+        const args = buildProgressiveFfmpegArgs(
+            "http://127.0.0.1:8096/Videos/x/stream?static=true",
+            {
+                maxSeconds: 0,
+                hlsTime: 6,
+                videoEncoder: "h264_nvenc",
+            },
+            "$Fanout/job/index.m3u8",
+            "$Fanout/job/seg%03d.ts",
+        );
+        assert.ok(args.includes("event"));
+        assert.ok(!args.includes("vod"));
+        assert.ok(args.includes("-hls_list_size"));
+    });
+});
+
 describe("dffmpeg wait timeout for full-title bake", () => {
     it("uses multi-hour timeout when maxSeconds is 0", () => {
         // Mirror hlsBakeDffmpeg.toClientCfg math without importing private helper.

@@ -6,6 +6,7 @@ import type { FanoutPublishResult } from "./publish";
 export type FanoutJobStatus =
     | "queued"
     | "baking"
+    | "playable"
     | "publishing"
     | "ready"
     | "failed";
@@ -21,7 +22,15 @@ export interface FanoutJobRecord {
     result?: FanoutPublishResult;
 }
 
-type FanoutRunner = (job: FanoutJobRecord) => Promise<FanoutPublishResult>;
+export interface FanoutRunnerHooks {
+    /** First public playlist URL — mint UI can stop waiting here. */
+    markPlayable: (result: FanoutPublishResult) => Promise<void>;
+}
+
+type FanoutRunner = (
+    job: FanoutJobRecord,
+    hooks: FanoutRunnerHooks,
+) => Promise<FanoutPublishResult>;
 
 const jobs = new Map<string, FanoutJobRecord>();
 let storePath: string | null = null;
@@ -63,8 +72,12 @@ export async function loadFanoutJobs(): Promise<void> {
         if (!Array.isArray(rows)) return;
         for (const row of rows) {
             if (!row?.jobId) continue;
-            // In-flight jobs from a previous process cannot resume safely.
-            if (row.status === "queued" || row.status === "baking" || row.status === "publishing") {
+            if (
+                row.status === "queued" ||
+                row.status === "baking" ||
+                row.status === "publishing"
+            ) {
+                // playable jobs already have a URL — leave them; in-flight bake cannot resume.
                 row.status = "failed";
                 row.error = row.error || "Server restarted during fan-out";
                 row.updatedAt = new Date().toISOString();
@@ -135,7 +148,19 @@ export function startFanoutJob(jobId: string): void {
     void (async () => {
         try {
             await updateJob(jobId, { status: "baking", error: undefined });
-            const result = await runner!(job);
+            const result = await runner!(job, {
+                markPlayable: async (partial) => {
+                    const cur = jobs.get(jobId);
+                    if (!cur || cur.status === "ready" || cur.status === "failed") {
+                        return;
+                    }
+                    await updateJob(jobId, {
+                        status: "playable",
+                        result: partial,
+                        error: undefined,
+                    });
+                },
+            });
             await updateJob(jobId, { status: "ready", result, error: undefined });
             console.log(`OCI HLS fan-out ready job=${jobId} ${result.playlistUrl}`);
         } catch (err) {
