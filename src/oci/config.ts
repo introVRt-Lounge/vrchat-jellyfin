@@ -30,6 +30,11 @@ export interface OciHlsPublishConfig {
     maxSeconds: number;
     /** HLS segment duration target (seconds). */
     hlsTime: number;
+    /**
+     * How many finished segments must exist before the public playlist URL is
+     * considered playable (progressive fan-out). Default 4 ≈ 24–40s at hlsTime 6–10.
+     */
+    headStartSegments: number;
     /** Working directory for local ffmpeg output before upload. */
     workDir: string;
     /** local = in-process ffmpeg-static; dffmpeg = estate encode bus. */
@@ -81,6 +86,10 @@ export function buildOciHlsPublishConfig(
     const keyPrefix = clean(env.OCI_HLS_KEY_PREFIX) || "vrchat-fanout";
     const maxSeconds = parseNonNegInt(env.OCI_HLS_MAX_SECONDS, 120);
     const hlsTime = Math.max(2, parseNonNegInt(env.OCI_HLS_TIME, 6) || 6);
+    const headStartSegments = Math.max(
+        2,
+        parseNonNegInt(env.OCI_HLS_HEAD_START_SEGMENTS, 4) || 4,
+    );
     const workDir = clean(env.OCI_HLS_WORK_DIR) || "/tmp/vrchat-oci-hls";
     const sourceBase = clean(env.OCI_HLS_SOURCE_BASE).replace(/\/+$/, "");
     const videoEncoder = clean(env.OCI_HLS_VIDEO_ENCODER) || "libx264";
@@ -112,6 +121,7 @@ export function buildOciHlsPublishConfig(
         keyPrefix,
         maxSeconds,
         hlsTime,
+        headStartSegments,
         workDir,
         bakeMode,
         dffmpeg: {

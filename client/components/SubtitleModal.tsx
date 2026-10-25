@@ -245,7 +245,11 @@ function SubtitleModal({
                 (typeof data.error === 'string' && data.error) || 'Fan-out bake failed',
               );
             }
-            if (data.status === 'ready' && typeof data.playlistUrl === 'string') {
+            // playable = head-start segments uploaded (use now); ready = bake finished.
+            if (
+              (data.status === 'playable' || data.status === 'ready') &&
+              typeof data.playlistUrl === 'string'
+            ) {
               break;
             }
           }
@@ -454,8 +458,9 @@ function SubtitleModal({
 
               {useFanout && (
                 <p className="shrink-0 text-xs text-amber-400/90">
-                  Preparing the group link can take a few minutes (encode +
-                  upload). Link lasts about a day on Object Storage - not the
+                  Group link appears after a short head-start encode (about a
+                  minute); the rest bakes in the background while you play.
+                  Link lasts about a day on Object Storage - not the
                   proxy path.
                 </p>
               )}

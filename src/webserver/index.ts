@@ -16,6 +16,7 @@ import {
 import path from "path";
 import { buildOciHlsPublishConfig } from "../oci/config";
 import { publishItemHlsFanout } from "../oci/publish";
+import { publishItemHlsFanoutProgressive } from "../oci/progressivePublish";
 import {
     configureFanoutJobs,
     createFanoutJob,
@@ -374,12 +375,21 @@ const fanoutStorePath = path.join(
 );
 configureFanoutJobs({
     storePath: fanoutStorePath,
-    runner: async (job) => {
+    runner: async (job, hooks) => {
         const ociCfg = buildOciHlsPublishConfig();
         const inputUrl = client.buildStaticMediaUrl(job.itemId, job.mediaSourceId);
         console.log(
-            `OCI HLS fan-out bake start job=${job.jobId} item=${job.itemId} mediaSourceId=${job.mediaSourceId || "default"} maxSeconds=${ociCfg.maxSeconds} bakeMode=${ociCfg.bakeMode} encoder=${ociCfg.videoEncoder}`,
+            `OCI HLS fan-out bake start job=${job.jobId} item=${job.itemId} mediaSourceId=${job.mediaSourceId || "default"} maxSeconds=${ociCfg.maxSeconds} bakeMode=${ociCfg.bakeMode} encoder=${ociCfg.videoEncoder} headStart=${ociCfg.headStartSegments}`,
         );
+        if (ociCfg.bakeMode === "dffmpeg") {
+            return publishItemHlsFanoutProgressive({
+                inputUrl,
+                itemId: job.itemId,
+                cfg: ociCfg,
+                jobId: job.jobId,
+                onPlayable: (partial) => hooks.markPlayable(partial),
+            });
+        }
         return publishItemHlsFanout({
             inputUrl,
             itemId: job.itemId,
