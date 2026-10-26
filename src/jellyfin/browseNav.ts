@@ -1,7 +1,8 @@
 /**
  * Browse click routing for library grids.
  * Never treat libraryType=TvShows as "everything is a Series" — SearchHints
- * return Episodes/Seasons, and Episode-as-show parentId returns root libraries.
+ * return Episodes/Seasons, and Episode-as-show parentId returns root libraries
+ * (or, with includeItemTypes=Season, every Season in the library).
  */
 
 export type LibraryItemRef = {
@@ -30,10 +31,23 @@ export type SeasonLike = {
     Name?: string | null;
     Type?: string | null;
     IndexNumber?: number | null;
+    ParentId?: string | null;
+    SeriesId?: string | null;
     ImageTags?: { [key: string]: string } | null;
 };
 
-/** Drop CollectionFolder / UserView junk when parentId is not a Series. */
-export function filterSeasonItems<T extends SeasonLike>(items: T[]): T[] {
-    return items.filter((item) => item.Type === "Season");
+/**
+ * Keep Season rows that belong to this series.
+ * When Jellyfin ignores a non-Series parentId + includeItemTypes=Season, it can
+ * return every Season in the library — ParentId/SeriesId must still match.
+ */
+export function filterSeasonItems<T extends SeasonLike>(
+    items: T[],
+    showId?: string,
+): T[] {
+    const seasons = items.filter((item) => item.Type === "Season");
+    if (!showId) return seasons;
+    return seasons.filter(
+        (item) => item.ParentId === showId || item.SeriesId === showId,
+    );
 }

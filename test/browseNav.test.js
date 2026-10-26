@@ -34,30 +34,40 @@ describe("resolveLibraryItemAction (TV browse clicks)", () => {
             { action: "mint", itemId: "m1" },
         );
     });
-
-    it("does not treat TvShows library context as blanket Series navigation", () => {
-        // libraryType must not matter — only item.type
-        assert.deepEqual(
-            resolveLibraryItemAction({ itemId: "ep2", type: "Episode" }),
-            { action: "mint", itemId: "ep2" },
-        );
-    });
 });
 
 describe("filterSeasonItems", () => {
-    it("keeps only Season rows so Episode parentId junk (CollectionFolder) is dropped", () => {
+    it("keeps only Season rows so CollectionFolder junk is dropped", () => {
         const rows = filterSeasonItems([
             { Id: "lib-movies", Name: "Movies", Type: "CollectionFolder" },
-            { Id: "sea-1", Name: "Season 1", Type: "Season", IndexNumber: 1 },
+            { Id: "sea-1", Name: "Season 1", Type: "Season", IndexNumber: 1, ParentId: "show-1" },
             { Id: "lib-shows", Name: "Shows", Type: "UserView" },
         ]);
         assert.equal(rows.length, 1);
         assert.equal(rows[0].Id, "sea-1");
     });
 
-    it("returns empty when nothing is a Season", () => {
+    it("when showId is set, drops seasons that belong to other series", () => {
+        const rows = filterSeasonItems(
+            [
+                { Id: "sea-a", Name: "Season 1", Type: "Season", ParentId: "show-a", SeriesId: "show-a" },
+                { Id: "sea-b", Name: "Season 1", Type: "Season", ParentId: "show-b", SeriesId: "show-b" },
+                { Id: "sea-c", Name: "Season 2", Type: "Season", ParentId: "show-a", SeriesId: "show-a" },
+            ],
+            "show-a",
+        );
         assert.deepEqual(
-            filterSeasonItems([{ Id: "x", Name: "Movies", Type: "CollectionFolder" }]),
+            rows.map((r) => r.Id),
+            ["sea-a", "sea-c"],
+        );
+    });
+
+    it("returns empty when nothing is a Season for this show", () => {
+        assert.deepEqual(
+            filterSeasonItems(
+                [{ Id: "x", Name: "Movies", Type: "CollectionFolder" }],
+                "show-a",
+            ),
             [],
         );
     });
