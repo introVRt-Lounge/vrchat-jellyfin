@@ -5,6 +5,7 @@ import { getUserViewsApi } from "@jellyfin/sdk/lib/utils/api/user-views-api";
 import { getItemsApi } from "@jellyfin/sdk/lib/utils/api/items-api";
 import { getSearchApi } from "@jellyfin/sdk/lib/utils/api/search-api";
 import { ItemFields } from "@jellyfin/sdk/lib/generated-client/models/item-fields";
+import { BaseItemKind } from "@jellyfin/sdk/lib/generated-client/models/base-item-kind";
 import fetch from "node-fetch";
 import { resolve } from "path";
 import { ProxyOptions, SubtitleMethod } from "./proxy/proxy";
@@ -14,6 +15,7 @@ import {
     ImageUrlOptions,
 } from "./imageUrl";
 import { mapItemToListItem, mapSearchHintToListItem } from "./listItems";
+import { filterSeasonItems } from "./browseNav";
 import { resolveJellyfinDeviceId } from "./deviceId";
 
 const encodingSettings: Record<string, string> = require(resolve("./encodingSettings.js")).encodingSettings;
@@ -259,10 +261,11 @@ export default class JellyfinClient {
         const seasonsResponse = await getItemsApi(this._api).getItems({
             userId: this.userId!,
             parentId: showId,
+            includeItemTypes: [BaseItemKind.Season],
             fields: [ItemFields.PrimaryImageAspectRatio],
         });
 
-        const seasons = seasonsResponse.data.Items || [];
+        const seasons = filterSeasonItems(seasonsResponse.data.Items || []);
         return seasons.map(season => ({
             itemId: season.Id,
             name: season.Name,

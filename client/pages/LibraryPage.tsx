@@ -5,6 +5,7 @@ import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import SubtitleModal from '../components/SubtitleModal';
 import MovieRequestPanel from '../components/MovieRequestPanel';
 import { fetchUiConfig } from '../uiConfig';
+import { resolveLibraryItemAction } from '../../src/jellyfin/browseNav';
 
 interface LibraryItem {
   itemId: string;
@@ -150,12 +151,17 @@ function LibraryPage() {
   };
 
   const handleItemClick = (item: LibraryItem) => {
-    if (libraryType === 'TvShows' || item.type === 'Series') {
-      navigate(`/tvshow/${item.itemId}`);
-    } else {
-      setSelectedItem(item);
-      setSubtitleModalOpen(true);
+    const next = resolveLibraryItemAction(item);
+    if (next.action === 'show') {
+      navigate(`/tvshow/${next.showId}`);
+      return;
     }
+    if (next.action === 'season') {
+      navigate(`/season/${next.seasonId}`);
+      return;
+    }
+    setSelectedItem(item);
+    setSubtitleModalOpen(true);
   };
 
   const clearSearch = () => {
