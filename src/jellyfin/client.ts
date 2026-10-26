@@ -265,7 +265,7 @@ export default class JellyfinClient {
             fields: [ItemFields.PrimaryImageAspectRatio],
         });
 
-        const seasons = filterSeasonItems(seasonsResponse.data.Items || []);
+        const seasons = filterSeasonItems(seasonsResponse.data.Items || [], showId);
         return seasons.map(season => ({
             itemId: season.Id,
             name: season.Name,
