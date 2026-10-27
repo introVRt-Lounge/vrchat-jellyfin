@@ -227,12 +227,15 @@ export default class JellyfinClient {
         // SearchHints is the DB/index path. Do not use Items+MediaStreams here —
         // that hydrates (and can probe) every hit and sounds like a raid rebuild.
         if (term) {
+            // Movie+Series only — Episode filename hits dominate TV search and
+            // make SearchHints crawl a huge index for little browse value.
             const hintsResponse = await getSearchApi(this._api).get({
                 userId: this.userId!,
                 searchTerm: term,
                 parentId: libraryId,
                 startIndex: offset,
                 limit,
+                includeItemTypes: [BaseItemKind.Movie, BaseItemKind.Series],
                 includeMedia: true,
                 includePeople: false,
                 includeGenres: false,

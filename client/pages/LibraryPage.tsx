@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Input, Card, CardBody, Button } from '@heroui/react';
 import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
@@ -6,6 +6,7 @@ import SubtitleModal from '../components/SubtitleModal';
 import MovieRequestPanel from '../components/MovieRequestPanel';
 import { fetchUiConfig } from '../uiConfig';
 import { resolveLibraryItemAction } from '../../src/jellyfin/browseNav';
+import { filterCatalogByQuery } from '../../src/jellyfin/catalogSearch';
 
 interface LibraryItem {
   itemId: string;
@@ -20,6 +21,8 @@ interface LibraryItem {
 }
 
 const PAGE_SIZE = 50;
+/** Top-level Movies (~4.5k) / Shows (~330) fit one request; search filters locally. */
+const CATALOG_LIMIT = 10000;
 
 function LibraryPage() {
   const { libraryId } = useParams();
@@ -27,14 +30,11 @@ function LibraryPage() {
   const location = useLocation();
   const navState = (location.state || {}) as { libraryType?: string; libraryName?: string };
 
-  const [items, setItems] = useState<LibraryItem[]>([]);
+  const [catalog, setCatalog] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [offset, setOffset] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [libraryType, setLibraryType] = useState<'Movies' | 'TvShows' | null>(null);
   const [subtitleModalOpen, setSubtitleModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null);
@@ -58,72 +58,49 @@ function LibraryPage() {
     return 'Movies';
   };
 
-  const fetchPage = useCallback(
-    async (query: string, pageOffset: number, append: boolean) => {
-      if (!libraryId) return;
-
-      const params = new URLSearchParams();
-      params.set('limit', String(PAGE_SIZE));
-      params.set('offset', String(pageOffset));
-      if (query.trim()) {
-        params.append('search', query.trim());
-      }
-
-      const response = await fetch(`/libraries/${libraryId}/items?${params}`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch items: ${response.status}`);
-      }
-      const data: LibraryItem[] = await response.json();
-
-      setItems((prev) => (append ? [...prev, ...data] : data));
-      setHasMore(data.length >= PAGE_SIZE);
-      setOffset(pageOffset + data.length);
-      setLibraryType((prev) => prev || resolveLibraryType(data, navState.libraryType));
-    },
-    [libraryId, navState.libraryType],
-  );
-
-  const debouncedSearch = useCallback(
-    debounce(async (query: string) => {
-      setIsSearching(true);
-      setError(null);
-      try {
-        await fetchPage(query, 0, false);
-      } catch (err) {
-        console.error('Error searching items:', err);
-        setError('Failed to search items');
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300),
-    [fetchPage],
-  );
-
   useEffect(() => {
-    const fetchInitialItems = async () => {
-      if (!libraryId) return;
+    if (!libraryId) return;
+    let cancelled = false;
 
+    const loadCatalog = async () => {
       setLoading(true);
       setError(null);
+      setSearchQuery('');
+      setVisibleCount(PAGE_SIZE);
+      setCatalog([]);
 
       try {
-        await fetchPage('', 0, false);
+        const params = new URLSearchParams();
+        params.set('limit', String(CATALOG_LIMIT));
+        params.set('offset', '0');
+        const response = await fetch(`/libraries/${libraryId}/items?${params}`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch items: ${response.status}`);
+        }
+        const data: LibraryItem[] = await response.json();
+        if (cancelled) return;
+        setCatalog(data);
+        setLibraryType(resolveLibraryType(data, navState.libraryType));
       } catch (err) {
         console.error('Error fetching library items:', err);
-        setError('Failed to load library items. Please try again later.');
+        if (!cancelled) {
+          setError('Failed to load library items. Please try again later.');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    fetchInitialItems();
-  }, [libraryId, fetchPage]);
+    loadCatalog();
+    return () => {
+      cancelled = true;
+    };
+  }, [libraryId, navState.libraryType]);
 
   useEffect(() => {
-    if (!loading) {
-      debouncedSearch(searchQuery);
-    }
-  }, [searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+    // New query → show first page of matches immediately (local filter).
+    setVisibleCount(PAGE_SIZE);
+  }, [searchQuery]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -137,17 +114,16 @@ function LibraryPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const handleLoadMore = async () => {
-    setLoadingMore(true);
-    setError(null);
-    try {
-      await fetchPage(searchQuery, offset, true);
-    } catch (err) {
-      console.error('Error loading more items:', err);
-      setError('Failed to load more items');
-    } finally {
-      setLoadingMore(false);
-    }
+  const filtered = useMemo(
+    () => filterCatalogByQuery(catalog, searchQuery),
+    [catalog, searchQuery],
+  );
+  const items = filtered.slice(0, visibleCount);
+  const hasMore = filtered.length > visibleCount;
+  const isSearching = false; // local filter is sync
+
+  const handleLoadMore = () => {
+    setVisibleCount((n) => n + PAGE_SIZE);
   };
 
   const handleItemClick = (item: LibraryItem) => {
@@ -169,11 +145,12 @@ function LibraryPage() {
   };
 
   const getSearchStatusText = () => {
-    if (isSearching) return 'Searching...';
     if (searchQuery.trim()) {
-      return `Showing ${items.length} ${items.length === 1 ? 'result' : 'results'} — press Esc or clear to reset`;
+      return `Showing ${items.length} of ${filtered.length} ${
+        filtered.length === 1 ? 'result' : 'results'
+      } — press Esc or clear to reset`;
     }
-    return 'Tip: press / to focus search';
+    return `Tip: press / to focus search · ${catalog.length} titles loaded`;
   };
 
   const title =
@@ -197,7 +174,7 @@ function LibraryPage() {
     );
   }
 
-  if (error && items.length === 0) {
+  if (error && catalog.length === 0) {
     return (
       <div className="p-4 sm:p-8 max-w-7xl mx-auto">
         <h1 className="text-2xl sm:text-3xl font-bold mb-8">{title}</h1>
@@ -247,7 +224,9 @@ function LibraryPage() {
           />
           <p className="text-sm text-gray-400 mt-2">{getSearchStatusText()}</p>
           {error && (
-            <p className="text-sm text-red-400 mt-1" role="alert">{error}</p>
+            <p className="text-sm text-red-400 mt-1" role="alert">
+              {error}
+            </p>
           )}
         </div>
       </div>
@@ -295,7 +274,7 @@ function LibraryPage() {
         ))}
       </div>
 
-      {items.length === 0 && !isSearching && (
+      {items.length === 0 && (
         <div className="text-center py-12">
           <p className="text-gray-400 mb-4">
             {searchQuery
@@ -312,13 +291,12 @@ function LibraryPage() {
 
       {hasMore && items.length > 0 && (
         <div className="flex justify-center mt-8">
-          <Button color="primary" isLoading={loadingMore} onPress={handleLoadMore}>
+          <Button color="primary" onPress={handleLoadMore}>
             Load more
           </Button>
         </div>
       )}
 
-      {/* After search results (and Load more) — never compete with the search box. */}
       {movieRequestsEnabled &&
         libraryType !== 'TvShows' &&
         searchQuery.trim() &&
@@ -342,17 +320,6 @@ function LibraryPage() {
       )}
     </div>
   );
-}
-
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number,
-): (...args: Parameters<T>) => void {
-  let timeout: ReturnType<typeof setTimeout>;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
 }
 
 export default LibraryPage;
