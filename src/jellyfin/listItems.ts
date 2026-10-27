@@ -57,6 +57,7 @@ export type ItemLike = {
     Name?: string | null;
     Type?: string | null;
     IndexNumber?: number | null;
+    Path?: string | null;
     ImageTags?: { [key: string]: string } | null;
     MediaStreams?: MediaStreamLike[] | null;
     MediaSources?: MediaSourceLike[] | null;
@@ -90,6 +91,29 @@ export function formatMediaSourceLabel(source: MediaSourceLike): string {
     }
     if (container) return container.toUpperCase();
     return "Default version";
+}
+
+
+/** Version tag from "Title (year) - Version.ext" paths (Jellyfin multi-version folders). */
+export function versionLabelFromPath(path: string | null | undefined): string | null {
+    const base = (path || "").split(/[/\\]/).pop() || "";
+    const stem = base.replace(/\.[^.]+$/, "");
+    const m = stem.match(/\s+-\s+(.+)$/);
+    const ver = m ? m[1].trim() : "";
+    return ver || null;
+}
+
+/** Browse/search display name; appends Path version when Name alone collides. */
+export function displayListName(item: {
+    Name?: string | null;
+    Path?: string | null;
+}): string | null {
+    const name = item.Name ?? null;
+    const ver = versionLabelFromPath(item.Path);
+    if (name && ver && !name.toLowerCase().includes(ver.toLowerCase())) {
+        return `${name} (${ver})`;
+    }
+    return name;
 }
 
 export function mapMediaSources(
@@ -158,7 +182,7 @@ export function mapItemToListItem(
         : [];
     return {
         itemId,
-        name: item.Name ?? null,
+        name: displayListName(item),
         type: item.Type ?? "Unknown",
         thumbnailUrl: imageUrl(itemId, "Primary", item.ImageTags),
         hasSubtitles: subtitleStreams.length > 0,

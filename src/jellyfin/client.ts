@@ -247,12 +247,17 @@ export default class JellyfinClient {
                 .filter((row): row is NonNullable<typeof row> => row != null);
         }
 
+        // Recursive Movie/Series only: multi-version movie *folders* hide the
+        // actual Movie items one level down (e.g. Tropic Remux + Commentary).
         const itemsResponse = await getItemsApi(this._api).getItems({
             userId: this.userId!,
             parentId: libraryId,
+            recursive: true,
+            includeItemTypes: [BaseItemKind.Movie, BaseItemKind.Series],
             limit,
             startIndex: offset,
-            fields: [ItemFields.PrimaryImageAspectRatio],
+            fields: [ItemFields.PrimaryImageAspectRatio, ItemFields.Path],
+            enableTotalRecordCount: false,
         });
 
         return (itemsResponse.data.Items || [])
