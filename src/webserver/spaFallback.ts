@@ -5,7 +5,7 @@
  */
 
 const SPA_PATH =
-    /^\/(library|tvshow|season)\/[^/]+\/?$/;
+    /^\/(library|tvshow|season|item)\/[^/]+\/?$/;
 
 export function isSpaClientPath(pathname: string): boolean {
     if (!pathname) return false;

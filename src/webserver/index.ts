@@ -366,6 +366,7 @@ function sendSpaShell(_req: express.Request, res: express.Response) {
 app.get("/library/:libraryId", sendSpaShell);
 app.get("/tvshow/:showId", sendSpaShell);
 app.get("/season/:seasonId", sendSpaShell);
+app.get("/item/:itemId", sendSpaShell);
 
 ProxyManager.init();
 

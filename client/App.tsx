@@ -4,6 +4,7 @@ import LibrariesPage from './pages/LibrariesPage';
 import LibraryPage from './pages/LibraryPage';
 import TVShowPage from './pages/TVShowPage';
 import SeasonPage from './pages/SeasonPage';
+import ItemPage from './pages/ItemPage';
 import { applyUiTheme, fetchUiConfig } from './uiConfig';
 
 function App() {
@@ -40,6 +41,7 @@ function App() {
         <Route path="/library/:libraryId" element={<LibraryPage />} />
         <Route path="/tvshow/:showId" element={<TVShowPage />} />
         <Route path="/season/:seasonId" element={<SeasonPage />} />
+        <Route path="/item/:itemId" element={<ItemPage />} />
       </Routes>
     </div>
   );
