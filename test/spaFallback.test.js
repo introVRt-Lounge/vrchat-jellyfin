@@ -8,6 +8,7 @@ describe("SPA client path matcher", () => {
         assert.equal(isSpaClientPath("/library/f137a2dd21bbc1b99aa5c0f6bf02a805"), true);
         assert.equal(isSpaClientPath("/tvshow/abc"), true);
         assert.equal(isSpaClientPath("/season/xyz"), true);
+        assert.equal(isSpaClientPath("/item/abc123"), true);
         assert.equal(isSpaClientPath("/library/abc/"), true);
     });
 
@@ -15,6 +16,7 @@ describe("SPA client path matcher", () => {
         assert.equal(isSpaClientPath("/"), false);
         assert.equal(isSpaClientPath("/libraries"), false);
         assert.equal(isSpaClientPath("/libraries/f137/items"), false);
+        assert.equal(isSpaClientPath("/items/abc/details"), false);
         assert.equal(isSpaClientPath("/tvshows/abc/seasons"), false);
         assert.equal(isSpaClientPath("/seasons/xyz/episodes"), false);
         assert.equal(isSpaClientPath("/v/capid"), false);
