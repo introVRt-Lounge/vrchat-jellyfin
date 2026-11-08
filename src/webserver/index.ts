@@ -58,11 +58,21 @@ app.get("/og.png", (_req, res) => {
     res.sendFile("og.png", { root: "dist/client" });
 });
 
-// Silence browser favicon noise; reuse OG art.
 app.get("/favicon.ico", (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.sendFile("favicon.ico", { root: "dist/client" });
+});
+
+app.get("/icon-192.png", (_req, res) => {
     res.type("png");
     res.setHeader("Cache-Control", "public, max-age=86400");
-    res.sendFile("og.png", { root: "dist/client" });
+    res.sendFile("icon-192.png", { root: "dist/client" });
+});
+
+app.get("/icon-512.png", (_req, res) => {
+    res.type("png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.sendFile("icon-512.png", { root: "dist/client" });
 });
 
 // Public announce card for Discord link previews (Access Bypass).
