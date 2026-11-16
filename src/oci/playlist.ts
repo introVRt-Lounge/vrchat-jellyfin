@@ -38,3 +38,54 @@ export function absolutizeHlsPlaylist(
         })
         .join("\n");
 }
+
+/** Growing bake vs finished title — VRChat needs VOD+ENDLIST for scrub / start-at-0. */
+export type HlsPublishPhase = "event" | "vod";
+
+/**
+ * Normalize HLS tags for VRChat:
+ * - event: keep EVENT, add EXT-X-START:TIME-OFFSET=0 (version ≥ 6), no ENDLIST
+ * - vod: PLAYLIST-TYPE:VOD + ENDLIST + START=0 so players treat it as seekable VOD
+ */
+export function shapeHlsPlaylistForPublish(
+    playlistText: string,
+    phase: HlsPublishPhase,
+): string {
+    const lines = playlistText.split(/\r?\n/);
+    const out: string[] = [];
+    let versionValue = 3;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (/^#EXT-X-VERSION:/i.test(trimmed)) {
+            const n = Number(trimmed.split(":")[1]);
+            if (Number.isFinite(n)) versionValue = Math.max(versionValue, n);
+            continue;
+        }
+        if (/^#EXT-X-PLAYLIST-TYPE:/i.test(trimmed)) continue;
+        if (/^#EXT-X-START:/i.test(trimmed)) continue;
+        if (/^#EXT-X-ENDLIST$/i.test(trimmed)) continue;
+        out.push(line);
+    }
+
+    // EXT-X-START requires protocol version 6.
+    const headerTags = [
+        `#EXT-X-VERSION:${Math.max(versionValue, 6)}`,
+        phase === "vod" ? "#EXT-X-PLAYLIST-TYPE:VOD" : "#EXT-X-PLAYLIST-TYPE:EVENT",
+        "#EXT-X-START:TIME-OFFSET=0",
+    ];
+
+    let extm3uAt = out.findIndex((l) => l.trim() === "#EXTM3U");
+    if (extm3uAt < 0) {
+        out.unshift("#EXTM3U");
+        extm3uAt = 0;
+    }
+    out.splice(extm3uAt + 1, 0, ...headerTags);
+
+    if (phase === "vod") {
+        while (out.length && out[out.length - 1].trim() === "") out.pop();
+        out.push("#EXT-X-ENDLIST");
+    }
+
+    return out.join("\n").replace(/\n+$/, "\n");
+}

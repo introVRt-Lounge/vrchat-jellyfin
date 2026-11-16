@@ -23,6 +23,7 @@ Paste **`https://vrchat.introvrtlounge.com/share`** into Discord (not the Access
 
 ## Tips
 - If the player has a switch between **Video** and **Stream**, use **Stream**
+- **Group (3+) links:** wait until the mint UI says the bake is ready before pasting. An early "playable" playlist is live-edge HLS (random start, no scrub, A/V drift). Ready = seekable VOD with `#EXT-X-ENDLIST`.
 - I've personally had better luck with the Unity video player over the AVPro one, but both should work
 - If you change the video encoding settings, 720p (the default) works best for most devices. I wouldn't go above 1080p unless you have a smaller group or high upload bandwitdh.
 
