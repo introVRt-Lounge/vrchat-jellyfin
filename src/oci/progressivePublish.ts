@@ -8,7 +8,11 @@ import {
     type DffmpegClientConfig,
 } from "./dffmpegClient";
 import { cleanupBakeDir } from "./hlsBake";
-import { absolutizeHlsPlaylist, publicObjectUrl } from "./playlist";
+import {
+    absolutizeHlsPlaylist,
+    publicObjectUrl,
+    shapeHlsPlaylistForPublish,
+} from "./playlist";
 import type { FanoutPublishResult } from "./publish";
 import { createOciS3Client, putObjectBuffer, putObjectFile } from "./s3Upload";
 
@@ -221,7 +225,10 @@ export async function publishItemHlsFanoutProgressive(opts: {
         }
         const filtered = kept.join("\n");
         if (!filtered.includes("#EXTINF")) return;
-        const absolute = absolutizeHlsPlaylist(filtered, cfg.publicBase, prefix);
+        // Mid-bake: EVENT + START=0. Final ffmpeg ENDLIST → VOD for scrub in VRChat.
+        const phase = filtered.includes("#EXT-X-ENDLIST") ? "vod" : "event";
+        const shaped = shapeHlsPlaylistForPublish(filtered, phase);
+        const absolute = absolutizeHlsPlaylist(shaped, cfg.publicBase, prefix);
         await putObjectBuffer(
             s3,
             cfg,

@@ -13,6 +13,7 @@ import {
   Select,
   SelectItem,
 } from '@heroui/react';
+import { isFanoutCinemaReady } from '../fanoutCinema';
 import { fetchUiConfig, type StreamDurationOption } from '../uiConfig';
 
 interface Subtitle {
@@ -60,12 +61,12 @@ function AudienceFlowDiagram() {
                  (TTL you pick)
 
 Group (3+)
-  you ──mint──▶ bake once ──▶ Object Storage
-                              │
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-           headset        headset         headset
-           (same public playlist URL ~1 day)`}</pre>
+  you ──mint──▶ bake full VOD ──▶ Object Storage
+                                  │
+              ┌───────────────────┼───────────────────┐
+              ▼                   ▼                   ▼
+           headset            headset             headset
+           (same playlist; paste only when Ready)`}</pre>
   );
 }
 
@@ -94,6 +95,7 @@ function SubtitleModal({
   const [mediaSources, setMediaSources] = useState<MediaSourceOption[]>([]);
   const [selectedSourceKey, setSelectedSourceKey] = useState<string>('');
   const [loadingSubtitles, setLoadingSubtitles] = useState(false);
+  const [fanoutProgress, setFanoutProgress] = useState<string | null>(null);
 
   const useFanout = fanoutEnabled && audience === 'group';
   const selectedSource =
@@ -108,6 +110,7 @@ function SubtitleModal({
     setExpiresAt(null);
     setError(null);
     setCopied(false);
+    setFanoutProgress(null);
     setAudience('friends');
     setSubtitles(subtitlesProp.length ? subtitlesProp : []);
     setMediaSources([]);
@@ -201,11 +204,13 @@ function SubtitleModal({
   const handleSubtitleSelect = async (subtitleIndex: number | null) => {
     setLoading(true);
     setError(null);
+    setFanoutProgress(null);
 
     const mediaSourceId = selectedSource?.id || undefined;
 
     try {
       if (useFanout) {
+        setFanoutProgress('Starting group bake…');
         const response = await fetch(`/i/${itemId}/fanout`, {
           method: 'POST',
           headers: {
@@ -222,9 +227,11 @@ function SubtitleModal({
           throw new Error(accepted.error || `Fan-out publish failed: ${response.status}`);
         }
 
-        // Async: 202 + poll. Legacy sync 200 with playlistUrl still accepted.
+        // Async: 202 + poll until ready VOD. Never copy at playable (live-edge).
         let data = accepted as Record<string, unknown>;
-        if (response.status === 202 || (!data.playlistUrl && data.jobId)) {
+        const needsPoll =
+          response.status === 202 || (!data.playlistUrl && Boolean(data.jobId));
+        if (needsPoll) {
           const statusUrl =
             typeof data.statusUrl === 'string'
               ? data.statusUrl
@@ -245,11 +252,19 @@ function SubtitleModal({
                 (typeof data.error === 'string' && data.error) || 'Fan-out bake failed',
               );
             }
-            // playable = head-start segments uploaded (use now); ready = bake finished.
-            if (
-              (data.status === 'playable' || data.status === 'ready') &&
-              typeof data.playlistUrl === 'string'
+            const status = typeof data.status === 'string' ? data.status : '';
+            if (status === 'playable') {
+              setFanoutProgress(
+                'Encoding continues… waiting for the full seekable movie before copying the link.',
+              );
+            } else if (
+              status === 'baking' ||
+              status === 'queued' ||
+              status === 'publishing'
             ) {
+              setFanoutProgress(`Group bake: ${status}…`);
+            }
+            if (isFanoutCinemaReady(status) && typeof data.playlistUrl === 'string') {
               break;
             }
           }
@@ -259,7 +274,13 @@ function SubtitleModal({
         if (!url) {
           throw new Error('Fan-out publish returned no playlist URL');
         }
+        if (needsPoll && !isFanoutCinemaReady(String(data.status || ''))) {
+          throw new Error(
+            'Group bake timed out before the seekable VOD playlist was ready',
+          );
+        }
 
+        setFanoutProgress(null);
         setGeneratedUrl(url);
         setExpiresAt(null);
         setSelectedSubtitleIndex(subtitleIndex);
@@ -303,6 +324,7 @@ function SubtitleModal({
       }
     } catch (err) {
       console.error('Error creating proxy:', err);
+      setFanoutProgress(null);
       setError(
         err instanceof Error
           ? err.message
@@ -458,10 +480,14 @@ function SubtitleModal({
 
               {useFanout && (
                 <p className="shrink-0 text-xs text-amber-400/90">
-                  Group link appears after a short head-start encode (about a
-                  minute); the rest bakes in the background while you play.
-                  Link lasts about a day on Object Storage - not the
-                  proxy path.
+                  Group link is copied only when the full movie bake finishes
+                  (seekable VOD). In VRChat use Stream mode, not Video. Link
+                  lasts about a day on Object Storage - not the proxy path.
+                </p>
+              )}
+              {fanoutProgress && (
+                <p className="shrink-0 text-xs text-blue-300" role="status">
+                  {fanoutProgress}
                 </p>
               )}
 
@@ -535,7 +561,8 @@ function SubtitleModal({
                   </span>
                 </div>
                 <p className="text-sm text-gray-300 mb-3">
-                  Use this URL in VRChat or your preferred video player:
+                  Paste into VRChat. If the player has Video vs Stream, pick
+                  Stream. Start after the bake shows Ready so scrub works.
                 </p>
                 <div className="flex gap-2">
                   <input

@@ -2,9 +2,11 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 
 const { buildOciHlsPublishConfig } = require("../dist/oci/config");
+const { isFanoutCinemaReady } = require("../dist/oci/fanoutCinema");
 const {
     absolutizeHlsPlaylist,
     publicObjectUrl,
+    shapeHlsPlaylistForPublish,
 } = require("../dist/oci/playlist");
 const { rewriteUrlHostToIp } = require("../dist/oci/hlsBake");
 const { buildUiConfig } = require("../dist/webserver/uiConfig");
@@ -139,5 +141,53 @@ describe("OCI HLS playlist absolute URLs", () => {
         assert.ok(out.includes("#EXTM3U"));
         assert.ok(!out.split("\n").some((l) => l.trim() === "seg000.ts"));
         assert.ok(!/%2F/i.test(out));
+    });
+});
+
+describe("HLS playlist shaping for VRChat", () => {
+    const eventRaw = [
+        "#EXTM3U",
+        "#EXT-X-VERSION:3",
+        "#EXT-X-TARGETDURATION:6",
+        "#EXT-X-MEDIA-SEQUENCE:0",
+        "#EXT-X-PLAYLIST-TYPE:EVENT",
+        "#EXTINF:6.000,",
+        "seg000.ts",
+        "#EXTINF:6.000,",
+        "seg001.ts",
+        "#EXTINF:6.000,",
+        "seg002.ts",
+        "#EXTINF:6.000,",
+        "seg003.ts",
+        "",
+    ].join("\n");
+
+    it("adds EXT-X-START and bumps version on growing EVENT playlists", () => {
+        const out = shapeHlsPlaylistForPublish(eventRaw, "event");
+        assert.match(out, /#EXT-X-PLAYLIST-TYPE:EVENT/);
+        assert.match(out, /#EXT-X-START:TIME-OFFSET=0/);
+        assert.match(out, /#EXT-X-VERSION:6/);
+        assert.ok(!out.includes("#EXT-X-ENDLIST"));
+        assert.ok(out.includes("seg000.ts"));
+    });
+
+    it("rewrites finished playlists to VOD with ENDLIST", () => {
+        const finished = `${eventRaw.trim()}\n#EXT-X-ENDLIST\n`;
+        const out = shapeHlsPlaylistForPublish(finished, "vod");
+        assert.match(out, /#EXT-X-PLAYLIST-TYPE:VOD/);
+        assert.ok(!out.includes("#EXT-X-PLAYLIST-TYPE:EVENT"));
+        assert.match(out, /#EXT-X-ENDLIST/);
+        assert.match(out, /#EXT-X-START:TIME-OFFSET=0/);
+        assert.ok(out.trimEnd().endsWith("#EXT-X-ENDLIST"));
+    });
+});
+
+describe("fan-out cinema-ready gate", () => {
+    it("only ready is safe to paste into a VRChat movie player", () => {
+        assert.equal(isFanoutCinemaReady("playable"), false);
+        assert.equal(isFanoutCinemaReady("baking"), false);
+        assert.equal(isFanoutCinemaReady("queued"), false);
+        assert.equal(isFanoutCinemaReady("ready"), true);
+        assert.equal(isFanoutCinemaReady("failed"), false);
     });
 });

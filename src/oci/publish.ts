@@ -4,7 +4,11 @@ import path from "path";
 import { buildOciHlsPublishConfig, type OciHlsPublishConfig } from "./config";
 import { bakeHlsFromUrl, cleanupBakeDir, type BakeResult } from "./hlsBake";
 import { bakeHlsViaDffmpeg } from "./hlsBakeDffmpeg";
-import { absolutizeHlsPlaylist, publicObjectUrl } from "./playlist";
+import {
+    absolutizeHlsPlaylist,
+    publicObjectUrl,
+    shapeHlsPlaylistForPublish,
+} from "./playlist";
 import { createOciS3Client, putObjectBuffer, putObjectFile } from "./s3Upload";
 
 export interface FanoutPublishResult {
@@ -54,8 +58,9 @@ export async function uploadBakeDirToOci(opts: {
         }
 
         const rawPlaylist = await readFile(bake.playlistPath, "utf8");
+        const shapedPlaylist = shapeHlsPlaylistForPublish(rawPlaylist, "vod");
         const absolutePlaylist = absolutizeHlsPlaylist(
-            rawPlaylist,
+            shapedPlaylist,
             cfg.publicBase,
             prefix,
         );
